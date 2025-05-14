@@ -230,7 +230,7 @@ class Player(GameObject):
 
 
 
-    def take_damage(self, amount):
+    def take_damage(self, amount, renderer=None):
         if getattr(self, "_tmp_invincible_value", False):
             print("Dégâts ignorés (invincible)")
             return
@@ -239,6 +239,9 @@ class Player(GameObject):
         reduced = amount * (1 - resistance / 100)
         self.health = max(self.health - reduced, 0)
         print(f"Dégâts subis : {int(reduced)} (résistance {resistance}%) → Santé : {int(self.health)}")
+
+        if renderer:
+            renderer.damage_overlay_timer = 0.1
 
     def scroll_inventory(self, direction):
         if not self.inventory:

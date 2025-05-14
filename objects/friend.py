@@ -5,14 +5,16 @@ class Friend(PNJ):
         super().__init__(name=name, position=position)
         self.dialogue_enabled = True
 
-    def update(self, player, delta_time, game_map):
-        super().update(player, delta_time, game_map)
+    def update(self, player, delta_time, game_map, renderer):
+
+        super().update(player, delta_time, game_map, renderer)
         if self.mode == "neutral":
             self._handle_dialogue(player)
         elif self.mode == "ally":
             self._assist_combat(player, delta_time, game_map)
         elif self.mode == "foe":
-            self._attack_player(player, delta_time)
+            self._attack_player(player, delta_time, renderer)
+
 
     def _handle_dialogue(self, player):
         if self.dialogue_enabled:
@@ -24,7 +26,7 @@ class Friend(PNJ):
         self.set_action("assist")
         # Placeholder
 
-    def _attack_player(self, player, delta_time):
+    def _attack_player(self, player, delta_time, renderer):
         self.set_action("attack")
-        player.health -= 5 * delta_time
+        player.take_damage(5 * delta_time, renderer)
         print(f"{self.sprite} s'est retourné contre vous ! Santé du joueur : {int(player.health)}")

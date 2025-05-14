@@ -5,8 +5,6 @@ from engine.input_manager import InputManager
 from engine.renderer import Renderer
 from world.map import GameMap
 from objects.player import Player
-from objects.enemy import Enemy
-from objects.item import Item
 from config import TARGET_FPS
 from objects.foe import Foe
 
@@ -60,10 +58,8 @@ class GameEngine:
             self.player.perform_attack(self.pnjs, self.game_map)
 
         for pnj in self.pnjs:
-            if isinstance(pnj, Foe):
-                pnj.update(self.player, delta_time, self.game_map, self.renderer)
-            else:
-                pnj.update(self.player, delta_time, self.game_map)
+            pnj.update(self.player, delta_time, self.game_map, self.renderer)
+
 
         for item in self.items:
             item.update(self.player)

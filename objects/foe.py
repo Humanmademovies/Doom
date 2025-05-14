@@ -76,7 +76,7 @@ class Foe(PNJ):
         if self.health > 0 and player.health > 0:
             
             if random.random() <= min(max(self.S, 0), 10) / 10.0:
-                player.take_damage(self.P)
+                player.take_damage(self.P, renderer)
                 renderer.damage_overlay_timer = 0.1
 
             else:
