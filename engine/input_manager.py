@@ -16,15 +16,27 @@ class InputManager:
         self.right_pressed = False
         self._prev_left = False
         self._prev_right = False
+        self.up_pressed = False
+        self.down_pressed = False
+        self._prev_up = False
+        self._prev_down = False
+
 
     def update(self):
         keys = pygame.key.get_pressed()
 
         # Détection de clic pour les flèches gauche/droite
+        # Détection de clic pour les flèches ← → ↑ ↓ (flanc montant = pression unique)
         self._prev_left = self.left_pressed
         self._prev_right = self.right_pressed
-        self.left_pressed = keys[pygame.K_LEFT] and not self._prev_left
-        self.right_pressed = keys[pygame.K_RIGHT] and not self._prev_right
+        self._prev_up = self.up_pressed
+        self._prev_down = self.down_pressed
+
+        self.left_pressed = keys[pygame.K_LEFT]
+        self.right_pressed = keys[pygame.K_RIGHT]
+        self.up_pressed = keys[pygame.K_UP]
+        self.down_pressed = keys[pygame.K_DOWN]
+
 
         self.movement_vector = [0, 0]
         if keys[pygame.K_z]:
@@ -62,3 +74,15 @@ class InputManager:
     
     def is_key_pressed(self, key):
         return pygame.key.get_pressed()[key]
+
+    def is_left_pressed(self):
+        return self.left_pressed and not self._prev_left
+
+    def is_right_pressed(self):
+        return self.right_pressed and not self._prev_right
+
+    def is_up_pressed(self):
+        return self.up_pressed and not self._prev_up
+
+    def is_down_pressed(self):
+        return self.down_pressed and not self._prev_down

@@ -9,6 +9,10 @@ class Player(GameObject):
     def __init__(self, position=(1.0, 0.0, 1.0)):
         super().__init__(position)
         self.health = 100
+        self.inventory_items = []
+        self.inventory_weapons = []
+        self.item_index = 0
+        self.weapon_index = 0
         self.level = 1
         self.inventory = []
         self.rotation_y = 0.0
@@ -125,7 +129,13 @@ class Player(GameObject):
     # ---------- INVENTAIRE & OBJETS ----------
 
     def add_to_inventory(self, item):
-        self.inventory.append(item)
+        if item.item_type == "weapon":
+            self.inventory_weapons.append(item)
+            self.weapon_index = len(self.inventory_weapons) - 1  # sélection auto
+        else:
+            self.inventory_items.append(item)
+            self.item_index = len(self.inventory_items) - 1  # sélection auto
+
 
     def use_item(self, item_id):
         for item in self.inventory:
@@ -133,6 +143,18 @@ class Player(GameObject):
                 item.activate(self)
                 self.inventory.remove(item)
                 break
+    def scroll_items(self, direction):
+        if not self.inventory_items:
+            self.item_index = 0
+            return
+        self.item_index = (self.item_index + direction) % len(self.inventory_items)
+
+    def scroll_weapons(self, direction):
+        if not self.inventory_weapons:
+            self.weapon_index = 0
+            return
+        self.weapon_index = (self.weapon_index + direction) % len(self.inventory_weapons)
+        self.equip(self.get_selected_weapon())
 
     def equip(self, weapon):
         self.active_weapon = weapon
@@ -224,10 +246,28 @@ class Player(GameObject):
             return
 
         self.inventory_index = (self.inventory_index + direction) % len(self.inventory)
+    def scroll_items(self, direction):
+        if not self.inventory_items:
+            self.item_index = 0
+            return
+        self.item_index = (self.item_index + direction) % len(self.inventory_items)
+
+    def scroll_weapons(self, direction):
+        if not self.inventory_weapons:
+            self.weapon_index = 0
+            return
+        self.weapon_index = (self.weapon_index + direction) % len(self.inventory_weapons)
+        self.equip(self.inventory_weapons[self.weapon_index])
+
 
     def get_selected_item(self):
-        if 0 <= self.inventory_index < len(self.inventory):
-            return self.inventory[self.inventory_index]
+        if 0 <= self.item_index < len(self.inventory_items):
+            return self.inventory_items[self.item_index]
+        return None
+
+    def get_selected_weapon(self):
+        if 0 <= self.weapon_index < len(self.inventory_weapons):
+            return self.inventory_weapons[self.weapon_index]
         return None
 
     def use_selected_item(self):
@@ -237,8 +277,8 @@ class Player(GameObject):
             item.activate(self)
             if item.item_type != "weapon":
                 self.inventory.remove(item)
-                self.inventory_index = max(0, self.inventory_index - 1)
-    
+                self.inventory_items.remove(item)
+                self.item_index = max(0, self.item_index - 1)
 
     def apply_effect(self, effect):
         etype = effect.get("type")

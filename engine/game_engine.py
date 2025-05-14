@@ -39,12 +39,19 @@ class GameEngine:
         move_vector = self.input_manager.get_movement_vector()
         mouse_delta = self.input_manager.get_mouse_delta()
 
+        if self.input_manager.is_up_pressed():
+            self.player.scroll_items(-1)
+        elif self.input_manager.is_down_pressed():
+            self.player.scroll_items(1)
+
         if self.input_manager.is_left_pressed():
-            self.player.scroll_inventory(-1)
+            self.player.scroll_weapons(-1)
         elif self.input_manager.is_right_pressed():
-            self.player.scroll_inventory(1)
+            self.player.scroll_weapons(1)
+
         if self.input_manager.is_key_pressed(pygame.K_SPACE):
             self.player.use_selected_item()
+
 
 
         self.player.update(move_vector, mouse_delta, delta_time, self.game_map)
@@ -95,13 +102,20 @@ class GameEngine:
         icon_size = 32
         spacing = 5
 
-        for idx, item in enumerate(player.inventory):
-            sprite_name = f"{item.item_type}.png"
+        # --- INVENTAIRE D'ITEMS (GAUCHE) ---
+        for idx, item in enumerate(player.inventory_items):
+            if item.item_type == "potion" and hasattr(item, "effect"):
+                effect_type = item.effect.get("type")
+                sprite_name = f"potion_{effect_type}.png"
+            else:
+                sprite_name = f"{item.item_type}.png"
+
             texture = self.textures.get(sprite_name)
             if not texture:
+                print(f"[HUD] Texture manquante pour {sprite_name}")
                 continue
 
-            is_selected = (idx == player.inventory_index)
+            is_selected = (idx == player.item_index)
             scale = 1.2 if is_selected else 1.0
             size = int(icon_size * scale)
             x = x_start + idx * (icon_size + spacing)
@@ -109,12 +123,37 @@ class GameEngine:
 
             glBindTexture(GL_TEXTURE_2D, texture)
             glBegin(GL_QUADS)
-            glTexCoord2f(0, 0)
-            glVertex2f(x, y)
-            glTexCoord2f(1, 0)
-            glVertex2f(x + size, y)
-            glTexCoord2f(1, 1)
-            glVertex2f(x + size, y + size)
-            glTexCoord2f(0, 1)
-            glVertex2f(x, y + size)
+            glTexCoord2f(0, 0); glVertex2f(x, y)
+            glTexCoord2f(1, 0); glVertex2f(x + size, y)
+            glTexCoord2f(1, 1); glVertex2f(x + size, y + size)
+            glTexCoord2f(0, 1); glVertex2f(x, y + size)
             glEnd()
+
+        # --- INVENTAIRE D'ARMES (DROITE) ---
+        total = len(player.inventory_weapons)
+        for idx, item in enumerate(player.inventory_weapons):
+            name = item.weapon_attrs.get("name", "unknown") if hasattr(item, "weapon_attrs") else "unknown"
+            sprite_name = f"weapon_{name}.png"
+            texture = self.textures.get(sprite_name)
+            if not texture:
+                print(f"[HUD] Texture manquante pour {sprite_name}")
+                continue
+
+            is_selected = (idx == player.weapon_index)
+            scale = 1.2 if is_selected else 1.0
+            size = int(icon_size * scale)
+            x = SCREEN_WIDTH - (total - idx) * (icon_size + spacing)
+            y = y_start - (size - icon_size) // 2
+
+            glBindTexture(GL_TEXTURE_2D, texture)
+            glBegin(GL_QUADS)
+            glTexCoord2f(0, 0); glVertex2f(x, y)
+            glTexCoord2f(1, 0); glVertex2f(x + size, y)
+            glTexCoord2f(1, 1); glVertex2f(x + size, y + size)
+            glTexCoord2f(0, 1); glVertex2f(x, y + size)
+            glEnd()
+
+            # Affichage des munitions si présentes
+            ammo = getattr(item, "ammo", None)
+            if ammo is not None:
+                self._draw_text(f"x{ammo}", x + size + 2, y + size // 2 - 8)
