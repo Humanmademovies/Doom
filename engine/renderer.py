@@ -325,7 +325,7 @@ class Renderer:
         spacing = 5
        
 
-        for idx, item in enumerate(player.inventory):
+        for idx, item in enumerate(player.inventory_items):
             if item.item_type == "potion" and hasattr(item, "effect"):
                 effect_type = item.effect.get("type")
                 sprite_name = f"potion_{effect_type}.png"

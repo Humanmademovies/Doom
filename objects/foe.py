@@ -12,7 +12,7 @@ class Foe(PNJ):
 
 
     def update(self, player, delta_time, game_map, renderer):
-        super().update(player, delta_time, game_map)
+        super().update(player, delta_time, game_map, renderer)
 
         if self.health <= 0 or self.state == "dmg":
             return  # ne rien faire si mort ou en train d'afficher l'effet de blessure

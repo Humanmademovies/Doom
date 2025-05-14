@@ -227,9 +227,6 @@ class Player(GameObject):
                     pnj.take_damage(weapon.power)
                     print(f"{pnj.name} a été frappé par {weapon.name} (ranged)")
 
-
-
-
     def take_damage(self, amount, renderer=None):
         if getattr(self, "_tmp_invincible_value", False):
             print("Dégâts ignorés (invincible)")
@@ -249,6 +246,7 @@ class Player(GameObject):
             return
 
         self.inventory_index = (self.inventory_index + direction) % len(self.inventory)
+        
     def scroll_items(self, direction):
         if not self.inventory_items:
             self.item_index = 0
@@ -279,7 +277,6 @@ class Player(GameObject):
             print(f"Utilisation de l’objet sélectionné : {item.id}")
             item.activate(self)
             if item.item_type != "weapon":
-                self.inventory.remove(item)
                 self.inventory_items.remove(item)
                 self.item_index = max(0, self.item_index - 1)
 

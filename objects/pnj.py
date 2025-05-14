@@ -37,7 +37,8 @@ class PNJ(GameObject):
         self.sprite = f"{self.name}_{action}.png"
 
 
-    def update(self, player, delta_time, game_map):
+    def update(self, player, delta_time, game_map, renderer):
+
         if self.dmg_timer > 0:
             self.dmg_timer -= delta_time
             if self.dmg_timer <= 0 and self.health > 0:
