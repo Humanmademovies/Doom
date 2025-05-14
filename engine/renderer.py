@@ -84,9 +84,10 @@ class Renderer:
         glTexCoord2f(1, 0); glVertex2f(x + width, y + height)     # coin inférieur droit
         glTexCoord2f(0, 0); glVertex2f(x, y + height)             # coin inférieur gauche
         glEnd()
+        glDeleteTextures(int(texture_id))
 
         # Nettoyage : suppression de la texture temporaire
-        glDeleteTextures(texture_id)
+        #glDeleteTextures(texture_id)
 
 
 
