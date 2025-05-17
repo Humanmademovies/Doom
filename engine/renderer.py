@@ -317,48 +317,63 @@ class Renderer:
             self._draw_rect_2d(map_offset_x + px * tile_size, map_offset_y + py * tile_size, tile_size, tile_size, color)
 
     def _render_inventory(self, player):
-
-
-        x_start = 20
-        y_start = 60
-        icon_size = 32
+        x_start = 80
+        y_start = SCREEN_HEIGHT - 120  
+        icon_size = 80
         spacing = 5
-       
 
+        # -- Inventaire d'items (à gauche) --
         for idx, item in enumerate(player.inventory_items):
             if item.item_type == "potion" and hasattr(item, "effect"):
                 effect_type = item.effect.get("type")
                 sprite_name = f"potion_{effect_type}.png"
-            elif item.item_type == "weapon" and hasattr(item, "weapon_attrs"):
-                name = item.weapon_attrs.get("name", "unknown")
-                sprite_name = f"weapon_{name}.png"
             else:
                 sprite_name = f"{item.item_type}.png"
-
             texture = self.textures.get(sprite_name)
             if not texture:
-              #  print(f"[HUD] Texture manquante pour {sprite_name}")
                 continue
 
-
-            is_selected = (idx == player.inventory_index)
+            is_selected = (idx == player.item_index)
             scale = 1.2 if is_selected else 1.0
             size = int(icon_size * scale)
             x = x_start + idx * (icon_size + spacing)
-            y = y_start - (size - icon_size) // 2  # recentrer verticalement
-            #print(f"[HUD] item: {item.id}, type: {item.item_type}, weapon_attrs: {getattr(item, 'weapon_attrs', None)}")
+            y = y_start - (size - icon_size) // 2
 
             glBindTexture(GL_TEXTURE_2D, texture)
             glBegin(GL_QUADS)
-            glTexCoord2f(0, 0)
-            glVertex2f(x, y)
-            glTexCoord2f(1, 0)
-            glVertex2f(x + size, y)
-            glTexCoord2f(1, 1)
-            glVertex2f(x + size, y + size)
-            glTexCoord2f(0, 1)
-            glVertex2f(x, y + size)
+            glTexCoord2f(0, 0); glVertex2f(x, y)
+            glTexCoord2f(1, 0); glVertex2f(x + size, y)
+            glTexCoord2f(1, 1); glVertex2f(x + size, y + size)
+            glTexCoord2f(0, 1); glVertex2f(x, y + size)
             glEnd()
+
+        # -- Inventaire d'armes (à droite) --
+        total_weapons = len(player.inventory_weapons)
+        for idx, weapon in enumerate(player.inventory_weapons):
+            name = weapon.name
+            sprite_name = f"weapon_{name}.png"
+            texture = self.textures.get(sprite_name)
+            if not texture:
+                continue
+
+            is_selected = (idx == player.weapon_index)
+            scale = 1.2 if is_selected else 1.0
+            size = int(icon_size * scale)
+            x = SCREEN_WIDTH - (total_weapons - idx) * (icon_size + spacing)
+            y = y_start - (size - icon_size) // 2
+
+            glBindTexture(GL_TEXTURE_2D, texture)
+            glBegin(GL_QUADS)
+            glTexCoord2f(0, 0); glVertex2f(x, y)
+            glTexCoord2f(1, 0); glVertex2f(x + size, y)
+            glTexCoord2f(1, 1); glVertex2f(x + size, y + size)
+            glTexCoord2f(0, 1); glVertex2f(x, y + size)
+            glEnd()
+
+            # Affichage des munitions
+            if getattr(weapon, "ammo", None) is not None:
+                self._draw_text(f"x{weapon.ammo}", x + size + 2, y + size // 2 - 8)
+
 
 
     def _draw_rect_2d(self, x, y, w, h, color):

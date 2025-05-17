@@ -14,13 +14,10 @@ class Player(GameObject):
         self.item_index = 0
         self.weapon_index = 0
         self.level = 1
-        self.inventory = []
         self.rotation_y = 0.0
         self.active_weapon = Weapon(name="fist", weapon_type="melee")
         self.attack_timer = 0.0
         self.can_attack = True
-        self.inventory_index = 0
-
 
     def _is_in_view(self, target, fov=60.0):
         dx = target.position[0] - self.position[0]
@@ -34,9 +31,6 @@ class Player(GameObject):
 
         print(f"[ANGLE TEST] target={target.name}, angle_to_target={angle_to_target:.1f}°, player_angle={player_angle:.1f}°, diff={diff:.1f}°, in_view={in_view}")
         return in_view
-
-
-
 
     def _has_line_of_sight(self, target, game_map):
         x0 = int(self.position[0])
@@ -136,13 +130,6 @@ class Player(GameObject):
             self.inventory_items.append(item)
             self.item_index = len(self.inventory_items) - 1  # sélection auto
 
-
-    def use_item(self, item_id):
-        for item in self.inventory:
-            if item.id == item_id:
-                item.activate(self)
-                self.inventory.remove(item)
-                break
     def scroll_items(self, direction):
         if not self.inventory_items:
             self.item_index = 0
@@ -240,13 +227,6 @@ class Player(GameObject):
         if renderer:
             renderer.damage_overlay_timer = 0.1
 
-    def scroll_inventory(self, direction):
-        if not self.inventory:
-            self.inventory_index = 0
-            return
-
-        self.inventory_index = (self.inventory_index + direction) % len(self.inventory)
-        
     def scroll_items(self, direction):
         if not self.inventory_items:
             self.item_index = 0

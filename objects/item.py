@@ -76,7 +76,7 @@ class Item(GameObject):
             print("Clé ramassée (effet passif).")
 
         elif self.item_type == "ammo":
-            for item in player.inventory:
+            for item in player.inventory_weapons:
                 if hasattr(item, "item_type") and item.item_type == "weapon" and self.id.startswith(item.id):
                     item.ammo += 5  # valeur par défaut
                     print(f"Munition ajoutée à {item.id} → {item.ammo}")
@@ -85,19 +85,7 @@ class Item(GameObject):
         else:
             player.add_to_inventory(self)
 
-        if self.item_type == "key":
-            print("Clé ramassée (effet passif).")
-            return
-
-        elif self.item_type == "ammo":
-            for item in player.inventory:
-                if hasattr(item, "item_type") and item.item_type == "weapon" and self.id.startswith(item.id):
-                    item.ammo += 5  # valeur par défaut
-                    print(f"Munition ajoutée à {item.id} → {item.ammo}")
-                    return
-
-        else:
-            player.add_to_inventory(self)
+ 
 
 
     def activate(self, player):
