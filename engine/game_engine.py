@@ -19,15 +19,19 @@ class GameEngine:
         self.input_manager = InputManager()
         self.renderer = Renderer(self.screen)
         self.game_map = GameMap()
+
+        self.pnjs = []  # À remplir selon la carte ou le générateur
+        self.items = []  # À remplir selon la carte ou le générateur
+
+        # Chargement de la carte et des ressources avant de placer le joueur
+        self.load_resources(map_path)
+
         spawn_pos = self._find_free_cell()
         self.player = Player(position=(spawn_pos[0] + 0.5, 0.5, -spawn_pos[1] - 0.5))
-        self.pnjs= []  # À remplir selon la carte ou le générateur
-        self.items = []    # À remplir selon la carte ou le générateur
 
-        self.load_resources()
-
-    def load_resources(self):
-        self.game_map.load_from_file("assets/maps/medium_map.json")
+    def load_resources(self, map_path=None):
+        map_to_load = map_path or "assets/maps/medium_map.json"
+        self.game_map.load_from_file(map_to_load)
         self.pnjs = self.game_map.get_initial_pnjs()
         self.items = self.game_map.get_initial_items()
         self.renderer.load_textures()
