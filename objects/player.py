@@ -113,38 +113,31 @@ class Player(GameObject):
                     setattr(self, f"_tmp_{attr}_value", None)
                     print(f"Effet temporaire terminé : {attr}")
 
-    def fire(self):
+def fire(self, pnjs, game_map): # MODIFIÉ: Ajout des paramètres
         """
-        NOUVELLE MÉTHODE: Gère la logique de tir.
-        C'est cette méthode qui sera appelée dans la boucle de jeu principale.
-        Elle utilise les nouvelles capacités de la classe Weapon.
+        Gère la logique de tir. C'est cette méthode qui sera appelée 
+        dans la boucle de jeu principale.
         """
         if self.health <= 0:
-            return None # Le joueur est mort, il ne peut pas tirer
+            return
 
-        # On tente de tirer avec l'arme active.
-        # La méthode `perform_attack` de l'arme gère la cadence et les munitions.
         shot_fired = self.active_weapon.perform_attack()
 
         if shot_fired:
-            # Si le tir a réussi, on retourne la liste des cibles potentielles.
-            # La logique de détection des cibles est déplacée ici.
             targets = []
-            for pnj in pnjs: # Note: 'pnjs' devra être passé en argument
+            # On utilise maintenant les pnjs et la game_map passés en argument
+            for pnj in pnjs:
                 if hasattr(pnj, "health") and pnj.health > 0:
-                    if self._is_in_view(pnj) and self._has_line_of_sight(pnj, game_map): # 'game_map' aussi
+                    if self._is_in_view(pnj) and self._has_line_of_sight(pnj, game_map):
                         dx = pnj.position[0] - self.position[0]
-                        dz = self.position[2] - pnj.position[2]
+                        dz = pnj.position[2] - self.position[2]
                         distance = (dx**2 + dz**2) ** 0.5
                         targets.append((distance, pnj))
             
-            # Appliquer les dégâts en fonction du type d'arme
             self._apply_damage_to_targets(targets)
-            
+
     def _apply_damage_to_targets(self, targets):
-        """
-        NOUVELLE MÉTHODE: Applique les dégâts aux cibles identifiées.
-        """
+        """Ajusté pour ne plus prendre d'arguments inutiles."""
         weapon = self.active_weapon
         
         if weapon.weapon_type == "melee":
@@ -155,11 +148,13 @@ class Player(GameObject):
                     print(f"{target[1].name} a été frappé par {weapon.name}")
 
         elif weapon.weapon_type == "ranged":
-            for distance, pnj in targets:
-                if distance <= weapon.range: # On vérifie aussi la portée pour les armes à distance
-                    pnj.take_damage(weapon.power)
-                    print(f"{pnj.name} a été touché par {weapon.name} (ranged)")
-
+            # Pour un tir à distance, on touche la première cible dans la ligne de mire
+            if targets:
+                target = min(targets, key=lambda t: t[0])
+                if target[0] <= weapon.range:
+                    target[1].take_damage(weapon.power)
+                    print(f"{target[1].name} a été touché par {weapon.name} (ranged)")
+                    
     def reload_weapon(self):
         """
         NOUVELLE MÉTHODE: Gère le rechargement de l'arme.
