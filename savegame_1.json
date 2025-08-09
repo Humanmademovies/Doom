@@ -1,0 +1,191 @@
+{
+    "player": {
+        "__class__": "Player",
+        "position": [
+            2.643531951077637,
+            0.5,
+            -1.2056270987571551
+        ],
+        "rotation": 0.0,
+        "visible": true,
+        "health": 100,
+        "level": 1,
+        "rotation_y": 72.0,
+        "inventory_items": [],
+        "item_index": 0,
+        "inventory_weapons": [
+            {
+                "__class__": "Weapon",
+                "name": "fist",
+                "weapon_type": "melee",
+                "power": 15,
+                "range": 0.8,
+                "fire_rate": 0.5,
+                "attack_timer": -0.01200000000000033,
+                "state": "idle",
+                "mag_size": 0,
+                "ammo_loaded": 0,
+                "ammo_type": "none",
+                "melee_behavior": "single_target"
+            }
+        ],
+        "weapon_index": 0,
+        "active_weapon": {
+            "__class__": "Weapon",
+            "name": "fist",
+            "weapon_type": "melee",
+            "power": 15,
+            "range": 0.8,
+            "fire_rate": 0.5,
+            "attack_timer": -0.01200000000000033,
+            "state": "idle",
+            "mag_size": 0,
+            "ammo_loaded": 0,
+            "ammo_type": "none",
+            "melee_behavior": "single_target"
+        },
+        "ammo_pool": {
+            "9mm": 30,
+            "shell": 10
+        }
+    },
+    "pnjs": [
+        {
+            "__class__": "Foe",
+            "position": [
+                14.5,
+                0.6,
+                -14.5
+            ],
+            "rotation": 0.0,
+            "visible": true,
+            "name": "monster",
+            "dmg_timer": 0.0,
+            "P": 8,
+            "S": 3,
+            "I": 2,
+            "health": 150,
+            "size": 0.6,
+            "mode": "foe",
+            "inventory_index": 0,
+            "state": "patrol",
+            "sprite": "monster_patrol.png",
+            "speed": 1.0,
+            "patrol_points": [
+                [
+                    14.5,
+                    0,
+                    -14.5
+                ]
+            ],
+            "current_patrol_index": 0,
+            "attack_timer": 0.0
+        },
+        {
+            "__class__": "Friend",
+            "position": [
+                1.5,
+                0.4,
+                -1.5
+            ],
+            "rotation": 0.0,
+            "visible": true,
+            "name": "jeanmichel",
+            "dmg_timer": -0.00900000000000005,
+            "P": 6,
+            "S": 4,
+            "I": 7,
+            "health": 0,
+            "size": 0.2,
+            "mode": "friend",
+            "inventory_index": 0,
+            "state": "dead",
+            "sprite": "jeanmichel_dead.png",
+            "speed": 1.0,
+            "dialogue_enabled": true
+        }
+    ],
+    "items": [
+        {
+            "__class__": "Item",
+            "position": [
+                4.5,
+                0,
+                -4.5
+            ],
+            "rotation": 0.0,
+            "visible": true,
+            "item_type": "potion",
+            "id": "potion_130527221818384",
+            "collected": false,
+            "effect": {
+                "type": "heal",
+                "value": 30
+            },
+            "weapon_attrs": {},
+            "ammo_attrs": {}
+        },
+        {
+            "__class__": "Item",
+            "position": [
+                4.5,
+                0,
+                -5.5
+            ],
+            "rotation": 0.0,
+            "visible": true,
+            "item_type": "potion",
+            "id": "potion_130527221818240",
+            "collected": false,
+            "effect": {
+                "type": "speed",
+                "value": 25,
+                "duration": 20
+            },
+            "weapon_attrs": {},
+            "ammo_attrs": {}
+        },
+        {
+            "__class__": "Item",
+            "position": [
+                6.5,
+                0,
+                -5.5
+            ],
+            "rotation": 0.0,
+            "visible": true,
+            "item_type": "potion",
+            "id": "potion_130527221818000",
+            "collected": false,
+            "effect": {
+                "type": "resistance",
+                "value": 40,
+                "duration": 15
+            },
+            "weapon_attrs": {},
+            "ammo_attrs": {}
+        },
+        {
+            "__class__": "Item",
+            "position": [
+                3.5,
+                0,
+                -3.5
+            ],
+            "rotation": 0.0,
+            "visible": true,
+            "item_type": "weapon",
+            "id": "weapon_130527221818096",
+            "collected": false,
+            "effect": {},
+            "weapon_attrs": {
+                "name": "pistol",
+                "weapon_type": "ranged",
+                "power": 20,
+                "range": 8.0
+            },
+            "ammo_attrs": {}
+        }
+    ],
+    "map_name": "assets/maps/medium_map.json"
+}

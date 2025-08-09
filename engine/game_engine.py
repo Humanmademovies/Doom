@@ -8,10 +8,12 @@ from objects.player import Player
 from config import TARGET_FPS, DEFAULT_MAP
 
 class GameEngine:
-    def __init__(self, screen):
+    def __init__(self, screen, map_path): # Ajout de map_path
         self.screen = screen
-        # running est maintenant utilisé pour indiquer à l'état parent de se fermer
         self.running = True
+
+        # On stocke le chemin de la carte pour la recharger si besoin
+        self.map_path = map_path
 
         # Composants du moteur
         self.input_manager = InputManager()
@@ -29,7 +31,8 @@ class GameEngine:
 
     def load_resources(self):
         """Charge la carte, les textures et initialise les entités du niveau."""
-        self.game_map.load_from_file(DEFAULT_MAP)
+        # On utilise le chemin fourni au lieu de la constante
+        self.game_map.load_from_file(self.map_path) 
         self.pnjs = self.game_map.get_initial_pnjs()
         self.items = self.game_map.get_initial_items()
         self.renderer.load_textures()
@@ -97,3 +100,53 @@ class GameEngine:
                 if cell in self.game_map.floor_textures:
                     return (x, y)
         return (1, 1) # Fallback
+   # dans engine/game_engine.py
+
+    def update(self, delta_time):
+        """
+        Mise à jour, qui peut maintenant retourner une action comme "PAUSE" ou "GAME_OVER".
+        """
+        # Vérification de la mort du joueur en début de frame
+        if self.player.health <= 0:
+            return "GAME_OVER"
+
+        # La boucle for event parcourt tous les événements en attente
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.running = False
+                return None # On quitte
+            
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                return "REQUEST_PAUSE" # On envoie un signal
+
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 4:  # Molette vers le haut
+                    self.player.scroll_weapons(-1)
+                elif event.button == 5:  # Molette vers le bas
+                    self.player.scroll_weapons(1)
+
+        # 1. Mise à jour des entrées utilisateur
+        self.input_manager.update()
+
+        # 2. Gestion des actions du joueur
+        if self.input_manager.is_up_pressed(): self.player.scroll_items(-1)
+        if self.input_manager.is_down_pressed(): self.player.scroll_items(1)
+        
+        if self.input_manager.is_key_just_pressed(pygame.K_SPACE): self.player.use_selected_item()
+        if self.input_manager.is_key_pressed(pygame.K_r): self.player.reload_weapon()
+
+        # 3. Mise à jour du joueur
+        move_vector = self.input_manager.get_movement_vector()
+        mouse_delta = self.input_manager.get_mouse_delta()
+        self.player.update(move_vector, mouse_delta, delta_time, self.game_map)
+
+        # 4. Logique de tir
+        if self.input_manager.is_mouse_held():
+            self.player.fire(self.pnjs, self.game_map)
+
+        # 5. Mise à jour des PNJ et items
+        for pnj in self.pnjs: pnj.update(self.player, delta_time, self.game_map, self.renderer)
+        for item in self.items: item.update(self.player, delta_time)
+
+        # Si aucune action spéciale n'est retournée, on retourne None par défaut
+        return None

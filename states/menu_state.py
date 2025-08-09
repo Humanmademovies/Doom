@@ -94,7 +94,9 @@ class MenuState(BaseState):
         glDeleteTextures(texture_id)
 
     def start_new_game(self):
-        next_state = InteriorState(self.manager, self.screen)
+        """Passe à l'écran de sélection de la carte."""
+        from states.map_selection_state import MapSelectionState # Import local
+        next_state = MapSelectionState(self.manager, self.screen)
         self.manager.switch_state(next_state)
 
     def quit_game(self):

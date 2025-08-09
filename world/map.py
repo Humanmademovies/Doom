@@ -11,10 +11,13 @@ class GameMap:
         self.grid = []
         self.wall_textures = {}
         self.floor_textures = {}
-        self.enemy_positions = []
+        self.friend_positions = []
+        self.foe_positions = []
         self.item_positions = []
+        self.current_map_path = None # <-- LIGNE AJOUTÉE
 
     def load_from_file(self, filepath):
+        self.current_map_path = filepath # <-- LIGNE AJOUTÉE
         if not os.path.exists(filepath):
             raise FileNotFoundError(f"Carte introuvable : {filepath}")
         with open(filepath, 'r') as file:
