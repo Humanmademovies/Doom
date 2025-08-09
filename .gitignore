@@ -2,3 +2,5 @@ assets_trials/
 univers_loophole_rpg.md
 *.zip
 __pycache__/
+*.blend
+3d_assets/
