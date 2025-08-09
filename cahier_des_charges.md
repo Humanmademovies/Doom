@@ -1,5 +1,7 @@
 
 
+# Cahier des Charges - Projet Doom-Like
+
 ## Plan : Architecture Modulaire et Évolutive
 
 ### Structure des Dossiers
@@ -9,30 +11,27 @@ doom_like_project/
 ├── main.py
 ├── config.py
 ├── engine/
-│   ├── __init__.py
-│   ├── game_engine.py      # Cycle principal : boucle de jeu, gestion du timing et états généraux.
-│   ├── renderer.py         # Rendu 3D via OpenGL (utilisation de PyOpenGL ou moderngl) : projection caméra, création de shaders, gestion du batch des objets.
-│   └── input_manager.py    # Gestion des entrées clavier (zqsd) et souris.
+│   ├── ...
+│   ├── game_engine.py
+│   ├── renderer.py
+│   └── input_manager.py
 ├── world/
-│   ├── __init__.py
-│   ├── map.py              # Représentation du niveau sous forme d’array 2D ; méthodes pour la génération de la géométrie (sol, murs, textures).
-│   └── level_generator.py  # Algorithme ou utilitaire pour créer et modifier dynamiquement la carte à partir d’un array.
+│   ├── ...
+│   ├── map.py
+│   └── level_generator.py
 ├── objects/
-│   ├── __init__.py
-│   ├── game_object.py      # Classe de base pour tout objet du jeu (position, rotation, mise à jour, rendu).
-│   ├── player.py           # Extension de game_object pour le joueur, gestion des statistiques, input spécifique et interactions.
-│   ├── pnj.py              # Classe de base pour les personnages non-joueurs (PNJ) neutres.
-│   ├── friend.py           # PNJ non-hostile (neutre ou interactif).
-│   ├── foe.py              # PNJ hostile ; comportements de poursuite et attaque.
-│   └── item.py             # Objets interactifs sur la carte avec leur propre rendu en mode sprite (billboarding).
+│   ├── ...
+│   ├── game_object.py
+│   ├── player.py
+│   ├── pnj.py
+│   ├── friend.py
+│   ├── foe.py
+│   ├── weapon.py  <-- Rôle étendu
+│   └── item.py
 ├── ai/
-│   ├── __init__.py
-│   └── behavior.py         # Mécaniques d’intelligence artificielle basique pour déterminer l’action des ennemis en fonction de leur état et environnement.
+│   └── ...
 └── assets/
-    ├── textures/           # Images pour les murs, sols… (0.x pour textures de sol, entiers pour identifier les textures de mur).
-    ├── sprites/            # PNG des sprites pour les personnages et items ; tous en mode billboard.
-    └── sounds/             # (Optionnel) Sons d’ambiance et effets sonores.
-
+    └── ...
 ```
 
 ### Description des Modules et Fichiers

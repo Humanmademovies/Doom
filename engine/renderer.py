@@ -234,6 +234,11 @@ class Renderer:
         glPopMatrix()
 
     def render_hud(self, player, pnjs, items, game_map):
+        """
+        MODIFIÉ: Gère le rendu de toute l'interface utilisateur (HUD).
+        Affiche la barre de vie, la mini-carte, l'inventaire et maintenant les munitions.
+        """
+        # On passe en mode de rendu 2D (orthographique)
         glMatrixMode(GL_PROJECTION)
         glPushMatrix()
         glLoadIdentity()
@@ -243,24 +248,57 @@ class Renderer:
         glPushMatrix()
         glLoadIdentity()
 
-        glDisable(GL_DEPTH_TEST)
+        glDisable(GL_DEPTH_TEST) # On désactive le test de profondeur pour le HUD
 
+        # Rendu des éléments existants
         self._render_health_bar(player)
-        self._draw_text(f"Santé : {int(player.health)} / 100", 20, 45)
-
+        self._draw_text(f"Sante: {int(player.health)} / 100", 20, 45)
         self._render_mini_map(player, pnjs, game_map)
         self._render_inventory(player)
         self.render_weapon_hud(player)
 
-        glEnable(GL_DEPTH_TEST)
+        # NOUVEAU: Ajout de l'affichage des munitions
+        self._render_ammo_info(player)
+
+        # Rendu de l'effet de dégât si nécessaire
         if self.damage_overlay_timer > 0:
-            self.damage_overlay_timer -= 1/60  # supposer 60 FPS, sinon utiliser delta_time
+            self.damage_overlay_timer -= 1/60 # Supposer 60 FPS
             self._render_damage_overlay()
 
+        # On réactive le test de profondeur
+        glEnable(GL_DEPTH_TEST)
+
+        # On restaure les matrices de vue
         glPopMatrix()
         glMatrixMode(GL_PROJECTION)
         glPopMatrix()
         glMatrixMode(GL_MODELVIEW)
+
+    def _render_ammo_info(self, player):
+        """
+        NOUVELLE MÉTHODE (privée): Gère l'affichage des informations de munitions.
+        """
+        weapon = player.active_weapon
+
+        # On n'affiche les munitions que pour les armes qui en utilisent
+        if weapon.ammo_type != "none":
+            # Munitions dans le chargeur / Taille du chargeur
+            mag_text = f"{weapon.ammo_loaded} / {weapon.mag_size}"
+            
+            # Munitions totales en réserve pour ce type d'arme
+            reserve_ammo = player.ammo_pool.get(weapon.ammo_type, 0)
+            reserve_text = f"Reserve: {reserve_ammo}"
+
+            # Positionnement en bas à droite de l'écran
+            mag_x = SCREEN_WIDTH - 150
+            mag_y = SCREEN_HEIGHT - 80
+            
+            reserve_x = SCREEN_WIDTH - 150
+            reserve_y = SCREEN_HEIGHT - 50
+
+            # Dessin du texte
+            self._draw_text(mag_text, mag_x, mag_y)
+            self._draw_text(reserve_text, reserve_x, reserve_y)
 
     def _render_health_bar(self, player):
         texture = self.textures.get("life.png")

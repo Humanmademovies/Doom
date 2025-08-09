@@ -1,88 +1,125 @@
+# Plan de Réalisation Technique des Modules
 
-# Plan de Réalisation des Modules Python
-
-## 1. `main.py`
-### Objectif :
-Point d’entrée de l’application.
-
-### Étapes de mise en œuvre :
-- Importer `pygame`, `config`, `GameEngine` depuis `engine`.
-- Initialiser Pygame et la fenêtre.
-- Charger la configuration globale.
-- Créer une instance de `GameEngine`.
-- Démarrer la boucle principale (`engine.run()`).
-- Gérer les exceptions (avec un bloc `try/except` autour de la boucle principale).
+Ce document sert de feuille de route technique pour le développement du projet. Il détaille le rôle de chaque module, son implémentation actuelle et les fonctionnalités futures à intégrer.
 
 ---
 
-## 2. `config.py`
+## 1. `config.py`
 ### Objectif :
-Centraliser les paramètres globaux.
+Centraliser tous les paramètres globaux et les constantes d'équilibrage pour faciliter la maintenance et les ajustements.
 
-### Étapes de mise en œuvre :
-- Définir les dimensions de la fenêtre (`SCREEN_WIDTH`, `SCREEN_HEIGHT`).
-- Définir les paramètres de jeu (vitesse, FOV, distance de rendu...).
-- Spécifier les chemins des assets (textures, sons).
-- Ajouter un système de lecture/écriture depuis un fichier `.ini` ou `.json` si besoin d’une configuration modifiable.
+### Implémentation :
+- Définit les constantes de base (fenêtre, vitesse du joueur, sensibilité).
+- Spécifie les chemins vers les ressources (`assets`).
+- **Constante `WEAPON_CONFIG`**: Un dictionnaire central qui contient toutes les statistiques des armes (dégâts, portée, cadence, taille du chargeur, type de munitions). C'est le point de contrôle principal pour l'équilibrage du jeu.
+- **Constante `DEFAULT_MAP`**: Définit la carte à charger par défaut au lancement du jeu.
+
+---
+
+## 2. `engine/input_manager.py`
+### Objectif :
+Abstraire et gérer toutes les entrées du joueur (clavier et souris) de manière claire et exploitable par le moteur.
+
+### Implémentation :
+- Gère les mouvements (`ZQSD`) en les traduisant en un vecteur de déplacement.
+- Gère le mouvement de la souris pour la rotation de la caméra.
+- Gère les appuis uniques sur les touches directionnelles pour la navigation dans l'inventaire.
+- **Distinction du clic souris** :
+    - `is_mouse_held()` : Renvoie `True` tant que le bouton est maintenu (pour le tir automatique).
+    - `is_mouse_clicked()` : Renvoie `True` uniquement à la frame où le bouton est pressé (pour le tir semi-automatique ou les interactions).
 
 ---
 
 ## 3. `engine/game_engine.py`
 ### Objectif :
-Coordonner toutes les composantes du jeu.
+Orchestrer le cycle de vie du jeu, en coordonnant les mises à jour, le rendu et les interactions entre les différents modules.
 
-### Étapes de mise en œuvre :
-- Créer une classe `GameEngine` avec les attributs :
-  - `renderer`, `input_manager`, `world_map`, `player`, `enemies`, `items`.
-- Méthodes :
-  - `load_resources()`
-  - `update(delta_time)`
-  - `render()`
-  - `run()` : boucle principale avec `while running`
-- Gestion du framerate (`pygame.time.Clock`).
+### Implémentation :
+- Gère la boucle de jeu principale (`run()`) et le timing (`delta_time`).
+- Initialise et charge toutes les ressources nécessaires au démarrage (`load_resources`).
+- **Boucle `update(delta_time)`** :
+    - Met à jour l'état des entrées via `input_manager`.
+    - Gère les actions du joueur qui ne sont pas liées au tir (défilement d'inventaire, utilisation d'objets).
+    - Appelle `player.update()` pour gérer le mouvement.
+    - **Déclenche le tir** en appelant `player.fire()` si la souris est maintenue.
+    - **Déclenche le rechargement** en appelant `player.reload_weapon()` sur appui de la touche 'R'.
+    - Met à jour tous les PNJ et les items présents sur la carte.
+- **Boucle `render()`** : Appelle les différentes méthodes du `renderer` pour afficher le monde, les entités et le HUD.
 
 ---
 
 ## 4. `engine/renderer.py`
 ### Objectif :
-Rendu 3D avec PyOpenGL.
+Gérer tout l'aspect visuel du jeu, du rendu 3D du monde à l'interface utilisateur 2D (HUD).
 
-### Étapes de mise en œuvre :
-- Initialiser OpenGL (perspective, viewport).
-- Créer et lier les shaders.
-- Charger les textures depuis `assets/textures/`.
-- Gérer le rendu :
-  - du sol et des murs (mesh générés depuis la map),
-  - des sprites (billboarding : alignement face à la caméra).
-- Utiliser `glDrawArrays`/`glDrawElements` pour le rendu.
+### Implémentation :
+- Initialise OpenGL et la perspective de la caméra.
+- Charge et stocke toutes les textures du jeu (`load_textures`).
+- **Rendu du monde** : Affiche la géométrie des murs et des sols générée par `GameMap`.
+- **Rendu des entités** : Affiche les PNJ et les items en tant que sprites 2D dans l'espace 3D (billboarding).
+- **Rendu du HUD (`render_hud`)** :
+    - Affiche la barre de vie et la mini-carte.
+    - Affiche l'inventaire des objets et des armes.
+    - Affiche l'arme tenue par le joueur.
+    - **Affiche les informations sur les munitions** : utilise une méthode dédiée (`_render_ammo_info`) pour montrer les munitions dans le chargeur et la réserve totale, en lisant les données directement depuis l'arme active et le `ammo_pool` du joueur.
 
 ---
 
-## 5. `engine/input_manager.py`
+## 5. `objects/weapon.py`
 ### Objectif :
-Gestion des entrées clavier/souris.
+Définir le comportement, les statistiques et l'état de chaque arme du jeu. C'est une classe fondamentale du gameplay.
 
-### Étapes de mise en œuvre :
-- Capturer les événements Pygame.
-- Traduire les touches `zqsd` en vecteurs de mouvement.
-- Utiliser les mouvements de souris pour la rotation de la vue.
-- Fournir une API : `get_movement_vector()`, `get_mouse_delta()`.
+### Implémentation :
+- **Attributs** : `name`, `weapon_type`, `power`, `range`, `rpm` (cadence), `mag_size` (taille chargeur), `ammo_loaded` (munitions actuelles), `ammo_type`.
+- **Gestion de la cadence** : Un `attack_timer` interne, basé sur le `fire_rate` (calculé depuis les RPM), empêche de tirer plus vite que prévu.
+- **`perform_attack()`** : Méthode centrale qui vérifie si l'arme peut tirer (cadence + munitions), décrémente les munitions et réinitialise le timer.
+- **`reload(ammo_pool)`** : Logique de rechargement qui calcule les munitions nécessaires et les puise dans le pool de munitions fourni par le joueur.
+- **`set_state()`** : Permet de changer l'état de l'arme (`idle`, `attack`), utilisé pour les animations du HUD.
+
+### À implémenter :
+- **Attribut `fire_mode`** (`"semi"`, `"auto"`) pour gérer différents comportements de tir.
+- **Méthode `switch_fire_mode()`** pour permettre au joueur de changer le mode de tir des armes compatibles.
 
 ---
 
-## 6. `world/map.py`
+## 6. `objects/player.py`
 ### Objectif :
-Structure de la carte et génération de géométrie.
+Représenter le joueur, ses statistiques, ses actions et son inventaire.
 
-### Étapes de mise en œuvre :
-- Représenter la carte avec un array 2D.
-- Fournir une méthode pour charger une carte depuis un fichier texte ou JSON.
-- Fonction `generate_geometry()` : retourne les positions des murs et sols pour le rendu.
-- Associer les IDs aux textures murales ou de sol.
+### Implémentation :
+- Gère la santé, la position et la rotation de la caméra.
+- **`ammo_pool`** : Dictionnaire qui centralise toutes les munitions possédées par le joueur, partagées entre les armes du même calibre.
+- **`fire(pnjs, game_map)`** : Méthode principale de tir. Elle appelle `active_weapon.perform_attack()` et, si le tir réussit, effectue une détection de cible (`_is_in_view`, `_has_line_of_sight`) pour appliquer les dégâts.
+- **`reload_weapon()`** : Appelle la méthode `reload()` de l'arme active en lui passant son propre `ammo_pool`.
+- **`pickup_weapon(item)`** et **`add_ammo(type, amount)`** : Méthodes spécialisées pour gérer le ramassage d'armes et de munitions, appelées par `item.on_pickup()`.
+
+### À implémenter :
+- **Limite d'inventaire** : Gérer une limite de 4 armes maximum. Si le joueur en ramasse une nouvelle alors que son inventaire est plein, l'arme actuelle est "droppée" sur la carte.
 
 ---
 
-## 7. `world/level_generator.py`
+## 7. `objects/item.py`
+### Objectif :
+Définir les objets ramassables dans le monde du jeu.
+
+### Implémentation :
+- **Constructeur flexible** : Peut créer des potions (`effect`), des armes (`weapon_attrs`) ou des munitions (`ammo_attrs`).
+- **`on_pickup(player)`** : Agit comme un **aiguillage intelligent**. Plutôt que de contenir la logique, elle appelle la méthode appropriée du joueur (`player.pickup_weapon()`, `player.add_ammo()`, `player.add_to_inventory()`), ce qui rend le code plus modulaire.
+
+---
+
+## 8. `world/map.py`
+### Objectif :
+Charger, représenter et fournir la géométrie d'un niveau.
+
+### Implémentation :
+- Charge les données d'un niveau depuis un fichier JSON (`map`, `wall_textures`, `floor_textures`, `foes`, `friends`, `items`).
+- **`get_wall_geometry()` / `get_floor_geometry()`** : Génère les coordonnées des polygones pour les murs et les sols, utilisés par le `renderer`.
+- **`get_initial_pnjs()` / `get_initial_items()`** : Instancie les objets `Foe`, `Friend` et `Item` à partir des données de la carte.
+
+---
+
+## 9. `world/level_generator.py`
 ### Objectif :
 Génération dynamique ou procédurale.
 
@@ -94,7 +131,7 @@ Génération dynamique ou procédurale.
 
 ---
 
-## 8. `objects/game_object.py`
+## 10. `objects/game_object.py`
 ### Objectif :
 Classe de base des entités.
 
@@ -107,7 +144,7 @@ Classe de base des entités.
 
 ---
 
-## 9. `objects/player.py`
+## 11. `objects/player.py`
 ### Objectif :
 Gestion du joueur.
 
@@ -120,7 +157,7 @@ Gestion du joueur.
 
 ---
 
-## 10. `objects/pnj.py`
+## 12. `objects/pnj.py`
 
 ### Objectif :
 
@@ -135,7 +172,7 @@ Définir une base commune pour tous les personnages non-joueurs.
 
 ------
 
-## 11. `objects/friend.py`
+## 13. `objects/friend.py`
 
 ### Objectif :
 
@@ -150,7 +187,7 @@ Implémenter un PNJ non-hostile.
 
 ------
 
-## 12. `objects/foe.py`
+## 14. `objects/foe.py`
 
 ### Objectif :
 
@@ -165,7 +202,7 @@ Implémenter un PNJ hostile (ancien comportement des ennemis).
   - Attaquer à proximité (`attack`)
 - Gérer les collisions et la visibilité.
 
-## 13. `objects/item.py`
+## 15. `objects/item.py`
 ### Objectif :
 Objets interactifs.
 
@@ -177,7 +214,7 @@ Objets interactifs.
 
 ---
 
-## 14. `ai/behavior.py`
+## 16. `ai/behavior.py`
 ### Objectif :
 Implémentation d’une IA simple.
 
@@ -191,7 +228,7 @@ Implémentation d’une IA simple.
 
 #### AJOUT AU PLAN DE RÉALISATION
 
-## **15.** objects/weapon.py
+## **16.** objects/weapon.py
 
 ### Objectif :
 
@@ -205,7 +242,7 @@ Représenter une arme équipable utilisée par le joueur.
   - Intégration avec `Player.perform_attack()` pour appliquer les dégâts.
   - Associer un sprite à chaque état.
 
-## **16.** objects/pnj.py
+## **17.** objects/pnj.py
 
 ### Objectif :
 
@@ -217,7 +254,7 @@ Classe de base des personnages non-joueurs.
 - Initialiser la santé, les caractéristiques (P, S, I), le sprite et le mode.
 - Gérer les dégâts reçus et changement d'état visuel.
 
-## **17.** objects/friend.py
+## **18.** objects/friend.py
 
 ### Objectif :
 
@@ -229,7 +266,7 @@ Implémenter un PNJ non-hostile ou allié.
 - Système de changement de mode dynamique (ally, foe).
 - Sprite différent selon l'action.
 
-## **18.** **objects/foe.py**
+## **19.** **objects/foe.py**
 
 ### Objectif :
 
