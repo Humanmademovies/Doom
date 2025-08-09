@@ -81,13 +81,16 @@ class GameEngine:
     def render(self):
         """Gère tout le rendu graphique."""
         self.renderer.clear()
-        self.renderer.render_player(self.player) # Important de le faire avant les autres entités
+        self.renderer.render_player(self.player)
         self.renderer.render_world(self.game_map)
         self.renderer.render_pnjs(self.pnjs)
         self.renderer.render_entities(self.items)
-        self.renderer.render_hud(self.player) # Le HUD a juste besoin du joueur
+        
+        # CORRECTION: On passe tous les arguments nécessaires à la fonction render_hud
+        self.renderer.render_hud(self.player, self.pnjs, self.items, self.game_map)
+        
         self.renderer.swap_buffers()
-
+        
     def _find_free_cell(self):
         """Trouve une case de sol libre pour faire apparaître le joueur."""
         for y, row in enumerate(self.game_map.grid):
