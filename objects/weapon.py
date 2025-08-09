@@ -6,41 +6,25 @@ class Weapon:
     Cette classe est conçue pour être flexible et gérer différents types d'armes
     (mêlée, à distance, etc.) avec des modes de tir variés.
     """
-    def __init__(self, name="fist", weapon_type="melee", power=10, range=1.5, rpm=300, mag_size=10, ammo_type="none"):
+    def __init__(self, name="fist", weapon_type="melee", power=10, range=1.5, rpm=300, mag_size=10, ammo_type="none", melee_behavior="single_target"):
         """
         Initialise une nouvelle arme.
-
+        ...
         Args:
-            name (str): Le nom de l'arme (ex: "pistol"). Utilisé pour les chemins de sprites.
-            weapon_type (str): Le type de l'arme ("melee", "ranged").
-            power (int): Les dégâts infligés par un tir réussi.
-            range (float): La portée maximale de l'arme.
-            rpm (int): "Rounds Per Minute", la cadence de tir.
-            mag_size (int): La taille du chargeur.
-            ammo_type (str): Le type de munitions utilisé (ex: "9mm", "shell"). "none" pour les armes sans munitions.
+            # ... (autres arguments)
+            melee_behavior (str): Comportement pour les armes de mêlée ('single_target' ou 'area_effect').
         """
         self.name = name
         self.weapon_type = weapon_type
         self.power = power
         self.range = range
-
-        # --- NOUVEAUX ATTRIBUTS POUR LA GESTION DU TIR ---
-
-        # Cadence de tir : convertit les "tours par minute" en secondes par tir.
-        # Par exemple, 600 RPM = 10 tirs/seconde = 0.1s entre chaque tir.
         self.fire_rate = 60.0 / rpm if rpm > 0 else 0.5
-
-        # Minuterie pour gérer la cadence de tir.
         self.attack_timer = 0.0
-
-        # État actuel de l'arme pour l'animation (ex: "idle", "attack").
         self.state = "idle"
-
-        # --- NOUVEAUX ATTRIBUTS POUR LA GESTION DES MUNITIONS ---
-
-        self.mag_size = mag_size            # Taille maximale du chargeur
-        self.ammo_type = ammo_type          # Type de munitions (pour le partage entre armes)
-        self.ammo_loaded = mag_size         # Munitions actuellement dans l'arme
+        self.mag_size = mag_size
+        self.ammo_loaded = mag_size
+        self.ammo_type = ammo_type
+        self.melee_behavior = melee_behavior # <-- On stocke le nouvel attribut
 
     def set_state(self, new_state):
         """

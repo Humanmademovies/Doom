@@ -24,14 +24,30 @@ DEFAULT_MAP = "assets/maps/medium_map.json"
 # Dictionnaire centralisant toutes les statistiques des armes.
 # Cela permet d'équilibrer le jeu très facilement en modifiant simplement ces valeurs.
 WEAPON_CONFIG = {
+
+
     "fist": {
         "weapon_type": "melee",
         "power": 15,
-        "range": 1.5,
-        "rpm": 120,         # Cadence de frappe (plus basse que les armes à feu)
-        "mag_size": 0,      # Pas de chargeur
-        "ammo_type": "none" # Pas de munitions
+        "range": 0.8,
+        "rpm": 120,
+        "mag_size": 0,
+        "ammo_type": "none",
+        "melee_behavior": "single_target"  # <-- NOUVEL ATTRIBUT
     },
+    "pistol": {
+        # ... (pas de changement ici)
+    },
+    # EXEMPLE POUR LE FUTUR :
+    # "sword": {
+    #     "weapon_type": "melee",
+    #     "power": 35,
+    #     "range": 1.2,
+    #     "rpm": 80,
+    #     "ammo_type": "none",
+    #     "melee_behavior": "area_effect" # <-- Pourrait toucher plusieurs cibles
+    # }
+# ...
     "pistol": {
         "weapon_type": "ranged",
         "power": 25,

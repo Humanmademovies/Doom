@@ -5,22 +5,24 @@ import pygame
 class InputManager:
     """
     Gère toutes les entrées du joueur, y compris le clavier et la souris.
-    Cette classe abstrait les événements Pygame pour fournir des méthodes simples
-    et claires à utiliser dans le moteur de jeu (ex: "le joueur avance ?", 
-    "la souris a-t-elle été cliquée ?").
     """
     def __init__(self):
-        self.movement_vector = [0, 0]  # [strafe (gauche/droite), forward (avant/arrière)]
+        self.movement_vector = [0, 0]
         self.mouse_delta = [0, 0]
 
-        # --- GESTION DE LA SOURIS ---
         pygame.event.set_grab(True)
         pygame.mouse.set_visible(False)
 
+        # --- GESTION DE LA SOURIS ---
         self.mouse_pressed = False
         self._prev_mouse_pressed = False
 
-        # --- GESTION DES TOUCHES (POUR LE DÉFILEMENT D'INVENTAIRE) ---
+        # --- CORRECTION DE LA GESTION DES TOUCHES ---
+        # On initialise l'état actuel et précédent des touches.
+        self.keys = pygame.key.get_pressed()
+        self.prev_keys = self.keys
+
+        # --- GESTION DES TOUCHES SPÉCIFIQUES (POUR LE DÉFILEMENT D'INVENTAIRE) ---
         self.left_pressed = False
         self.right_pressed = False
         self.up_pressed = False
@@ -39,28 +41,29 @@ class InputManager:
         self._prev_mouse_pressed = self.mouse_pressed
         self.mouse_pressed = pygame.mouse.get_pressed()[0]
 
-        # --- MISE À JOUR TOUCHES ---
-        keys = pygame.key.get_pressed()
+        # --- CORRECTION DE LA GESTION DES TOUCHES ---
+        # L'état de la frame précédente devient l'ancien état.
+        self.prev_keys = self.keys
+        # On récupère le nouvel état de toutes les touches.
+        self.keys = pygame.key.get_pressed()
+
+        # --- MISE À JOUR TOUCHES SPÉCIFIQUES ---
         self._prev_left = self.left_pressed
         self._prev_right = self.right_pressed
         self._prev_up = self.up_pressed
         self._prev_down = self.down_pressed
 
-        self.left_pressed = keys[pygame.K_LEFT]
-        self.right_pressed = keys[pygame.K_RIGHT]
-        self.up_pressed = keys[pygame.K_UP]
-        self.down_pressed = keys[pygame.K_DOWN]
+        self.left_pressed = self.keys[pygame.K_LEFT]
+        self.right_pressed = self.keys[pygame.K_RIGHT]
+        self.up_pressed = self.keys[pygame.K_UP]
+        self.down_pressed = self.keys[pygame.K_DOWN]
 
         # --- MISE À JOUR MOUVEMENT ZQSD ---
         self.movement_vector = [0, 0]
-        if keys[pygame.K_z]:
-            self.movement_vector[1] += 1  # Avancer
-        if keys[pygame.K_s]:
-            self.movement_vector[1] -= 1  # Reculer
-        if keys[pygame.K_q]:
-            self.movement_vector[0] -= 1  # Strafe gauche
-        if keys[pygame.K_d]:
-            self.movement_vector[0] += 1  # Strafe droite
+        if self.keys[pygame.K_z]: self.movement_vector[1] += 1
+        if self.keys[pygame.K_s]: self.movement_vector[1] -= 1
+        if self.keys[pygame.K_q]: self.movement_vector[0] -= 1
+        if self.keys[pygame.K_d]: self.movement_vector[0] += 1
 
         # --- MISE À JOUR POSITION SOURIS ---
         mouse_x, mouse_y = pygame.mouse.get_pos()
@@ -83,7 +86,13 @@ class InputManager:
         return self.mouse_pressed
     
     def is_key_pressed(self, key):
-        return pygame.key.get_pressed()[key]
+        """Retourne True si la touche est actuellement enfoncée."""
+        return self.keys[key]
+
+    # --- NOUVELLE MÉTHODE CORRIGÉE ---
+    def is_key_just_pressed(self, key):
+        """Retourne True seulement à la frame où la touche est pressée."""
+        return self.keys[key] and not self.prev_keys[key]
 
     def is_left_pressed(self):
         return self.left_pressed and not self._prev_left

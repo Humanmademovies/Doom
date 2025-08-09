@@ -17,19 +17,30 @@ class Renderer:
         self.textures = {}
         self.font = pygame.freetype.Font("assets/ui/PressStart2P-Regular.ttf", 16)
 
+    # dans engine/renderer.py
+
     def _init_opengl(self):
+        # On ne configure plus la perspective ici.
+        # On ne garde que les réglages permanents.
         glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
+        glEnable(GL_DEPTH_TEST)
+        glEnable(GL_BLEND)
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+        glEnable(GL_TEXTURE_2D)
+        glClearColor(*BACKGROUND_COLOR)
+
+    def clear(self):
+        # --- CORRECTION ---
+        # On réinitialise la projection 3D à chaque début de frame.
+        # Cela garantit que même si un menu a changé la projection en 2D,
+        # le jeu la restaurera correctement.
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
         gluPerspective(FOV, SCREEN_WIDTH / SCREEN_HEIGHT, NEAR_CLIP, FAR_CLIP)
         glMatrixMode(GL_MODELVIEW)
 
-        glEnable(GL_DEPTH_TEST)
-        glEnable(GL_BLEND)
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-
-        glEnable(GL_TEXTURE_2D)
-        glClearColor(*BACKGROUND_COLOR)
+        # On peut maintenant effacer l'écran en étant sûr d'avoir la bonne configuration.
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
     def load_textures(self):
         for folder in [TEXTURES_PATH, "assets/sprites/", "assets/pnj/", "assets/ui/", "assets/weapons/"]:
@@ -89,9 +100,6 @@ class Renderer:
         # Nettoyage : suppression de la texture temporaire
         #glDeleteTextures(texture_id)
 
-
-
-
     def _load_texture(self, path):
         
 
@@ -107,9 +115,6 @@ class Renderer:
 
         return texture_id
 
-    def clear(self):
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-        
 
     def render_world(self, game_map):
        
@@ -274,29 +279,32 @@ class Renderer:
         glPopMatrix()
         glMatrixMode(GL_MODELVIEW)
 
+    # Dans engine/renderer.py
+
     def _render_ammo_info(self, player):
         """
         NOUVELLE MÉTHODE (privée): Gère l'affichage des informations de munitions.
         """
         weapon = player.active_weapon
 
-        # On n'affiche les munitions que pour les armes qui en utilisent
         if weapon.ammo_type != "none":
-            # Munitions dans le chargeur / Taille du chargeur
             mag_text = f"{weapon.ammo_loaded} / {weapon.mag_size}"
-            
-            # Munitions totales en réserve pour ce type d'arme
             reserve_ammo = player.ammo_pool.get(weapon.ammo_type, 0)
             reserve_text = f"Reserve: {reserve_ammo}"
 
-            # Positionnement en bas à droite de l'écran
-            mag_x = SCREEN_WIDTH - 150
+            # --- CORRECTION ---
+            # On calcule la largeur de chaque texte pour l'aligner correctement à droite
+            mag_surface, _ = self.font.render(mag_text, (255, 255, 255))
+            reserve_surface, _ = self.font.render(reserve_text, (255, 255, 255))
+
+            margin = 20
+            mag_x = SCREEN_WIDTH - mag_surface.get_width() - margin
             mag_y = SCREEN_HEIGHT - 80
             
-            reserve_x = SCREEN_WIDTH - 150
+            reserve_x = SCREEN_WIDTH - reserve_surface.get_width() - margin
             reserve_y = SCREEN_HEIGHT - 50
 
-            # Dessin du texte
+            # On utilise notre méthode de dessin qui gère déjà la création de texture
             self._draw_text(mag_text, mag_x, mag_y)
             self._draw_text(reserve_text, reserve_x, reserve_y)
 
@@ -354,19 +362,24 @@ class Renderer:
             color = (0.0, 1.0, 0.0) if pnj.mode == "friend" else (1.0, 0.0, 0.0)
             self._draw_rect_2d(map_offset_x + px * tile_size, map_offset_y + py * tile_size, tile_size, tile_size, color)
 
-    def _render_inventory(self, player):
-        x_start = 80
-        y_start = SCREEN_HEIGHT - 120  
-        icon_size = 80
-        spacing = 5
 
-        # -- Inventaire d'items (à gauche) --
+    def _render_inventory(self, player):
+        # --- CORRECTION ---
+        # Positionnement juste sous la barre de vie, taille réduite
+        x_start = 20  
+        y_start = 50 
+        icon_size = 40 
+        spacing = 10
+
+        # -- Inventaire d'items (potions, clés, etc.) --
         for idx, item in enumerate(player.inventory_items):
+            # ... (logique pour trouver le nom du sprite reste la même)
             if item.item_type == "potion" and hasattr(item, "effect"):
                 effect_type = item.effect.get("type")
                 sprite_name = f"potion_{effect_type}.png"
             else:
                 sprite_name = f"{item.item_type}.png"
+            
             texture = self.textures.get(sprite_name)
             if not texture:
                 continue
@@ -375,21 +388,26 @@ class Renderer:
             scale = 1.2 if is_selected else 1.0
             size = int(icon_size * scale)
             x = x_start + idx * (icon_size + spacing)
-            y = y_start - (size - icon_size) // 2
+            # Centrer verticalement par rapport à la taille de base
+            y = y_start - (size - icon_size) // 2 
 
             glBindTexture(GL_TEXTURE_2D, texture)
             glBegin(GL_QUADS)
-            glTexCoord2f(0, 0); glVertex2f(x, y)
-            glTexCoord2f(1, 0); glVertex2f(x + size, y)
-            glTexCoord2f(1, 1); glVertex2f(x + size, y + size)
-            glTexCoord2f(0, 1); glVertex2f(x, y + size)
+            # --- CORRECTION DE L'ORIENTATION (V inversé) ---
+            glTexCoord2f(0, 1); glVertex2f(x, y)
+            glTexCoord2f(1, 1); glVertex2f(x + size, y)
+            glTexCoord2f(1, 0); glVertex2f(x + size, y + size)
+            glTexCoord2f(0, 0); glVertex2f(x, y + size)
             glEnd()
 
-        # -- Inventaire d'armes (à droite) --
+        # -- Inventaire d'armes (logique similaire) --
+        # Positionnement à droite, sous la minimap
+        x_start_weapons = SCREEN_WIDTH - 300 # Ajuste selon la taille de la minimap
+        y_start_weapons = 80 # Juste en dessous de la minimap
+        
         total_weapons = len(player.inventory_weapons)
         for idx, weapon in enumerate(player.inventory_weapons):
-            name = weapon.name
-            sprite_name = f"weapon_{name}.png"
+            sprite_name = f"weapon_{weapon.name}.png"
             texture = self.textures.get(sprite_name)
             if not texture:
                 continue
@@ -397,20 +415,18 @@ class Renderer:
             is_selected = (idx == player.weapon_index)
             scale = 1.2 if is_selected else 1.0
             size = int(icon_size * scale)
-            x = SCREEN_WIDTH - (total_weapons - idx) * (icon_size + spacing)
-            y = y_start - (size - icon_size) // 2
+            # Positionnement horizontal de droite à gauche
+            x = x_start_weapons + idx * (icon_size + spacing)
+            y = y_start_weapons - (size - icon_size) // 2
 
             glBindTexture(GL_TEXTURE_2D, texture)
             glBegin(GL_QUADS)
-            glTexCoord2f(0, 0); glVertex2f(x, y)
-            glTexCoord2f(1, 0); glVertex2f(x + size, y)
-            glTexCoord2f(1, 1); glVertex2f(x + size, y + size)
-            glTexCoord2f(0, 1); glVertex2f(x, y + size)
+            # --- CORRECTION DE L'ORIENTATION (V inversé) ---
+            glTexCoord2f(0, 1); glVertex2f(x, y)
+            glTexCoord2f(1, 1); glVertex2f(x + size, y)
+            glTexCoord2f(1, 0); glVertex2f(x + size, y + size)
+            glTexCoord2f(0, 0); glVertex2f(x, y + size)
             glEnd()
-
-            # Affichage des munitions
-            if getattr(weapon, "ammo", None) is not None:
-                self._draw_text(f"x{weapon.ammo}", x + size + 2, y + size // 2 - 8)
 
 
 
