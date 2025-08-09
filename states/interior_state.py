@@ -3,6 +3,9 @@
 import pygame
 from states.base_state import BaseState
 from engine.game_engine import GameEngine
+# NOUVEL IMPORT
+from states.game_over_state import GameOverState
+
 
 class InteriorState(BaseState):
     """
@@ -36,6 +39,12 @@ class InteriorState(BaseState):
             from states.pause_state import PauseState
             # On peut maintenant utiliser self.screen sans erreur
             self.manager.push_state(PauseState(self.manager, self.screen))
+            return
+
+        # CORRECTION : On PUSH le nouvel état au lieu de faire un SWITCH.
+        # Cela permet à l'InteriorState de rester en arrière-plan.
+        if action == "GAME_OVER":
+            self.manager.push_state(GameOverState(self.manager, self.screen))
             return
 
         if not self.game_engine.running:
