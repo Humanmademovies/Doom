@@ -12,11 +12,10 @@
   "floor_textures": {
     "0.1": "stone_floor.png"
   },
-  "friends": [
-    { "x": 1, "y": 1, "name": "jeanmichel" }
-  ],
-  "foes": [
-    { "x": 3, "y": 3, "name": "monster" }
-  ],
-  "items": []
+  "foes": [],
+  "friends": [],
+  "items": [],
+  "spawn_points": {
+    "spawn_1": [1.5, 1.5]
+  }
 }

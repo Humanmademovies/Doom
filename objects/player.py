@@ -3,37 +3,27 @@
 import math
 from objects.game_object import GameObject
 from objects.weapon import Weapon
-from config import PLAYER_SPEED, MOUSE_SENSITIVITY, WEAPON_CONFIG
+from config import PLAYER_SPEED, MOUSE_SENSITIVITY, WEAPON_CONFIG, OVERWORLD_PLAYER_SPEED
 
 class Player(GameObject):
-    # dans objects/player.py
-
     def __init__(self, position=(1.0, 0.0, 1.0)):
         super().__init__(position)
         self.health = 100
         self.level = 1
         self.rotation_y = 0.0
+        self.mode = "3D"
+        self.size_2d = 64
 
-        # --- CORRECTION DE L'INITIALISATION DE L'INVENTAIRE ---
-        
         self.inventory_items = []
         self.item_index = 0
         
-        # 1. On initialise l'inventaire des armes comme une liste vide.
-        self.inventory_weapons = []
-        
-        # 2. On crée l'arme "fist" à partir de la config.
         fist_config = WEAPON_CONFIG.get("fist", {})
         fist_weapon = Weapon(name="fist", **fist_config)
         
-        # 3. ON AJOUTE LE POING COMME PREMIÈRE ARME DE L'INVENTAIRE. C'est la correction clé.
-        self.inventory_weapons.append(fist_weapon)
-        
-        # 4. L'index de l'arme et l'arme active sont définis à partir de l'inventaire.
+        self.inventory_weapons = [fist_weapon]
         self.weapon_index = 0
         self.active_weapon = self.inventory_weapons[self.weapon_index]
 
-        # Le pool de munitions reste le même.
         self.ammo_pool = {
             "9mm": 30,
             "shell": 10
@@ -72,26 +62,41 @@ class Player(GameObject):
                 y += sy
         return True
 
-    def update(self, movement_vector, mouse_delta, delta_time, game_map):
-        # --- 1. LOGIQUE DE MOUVEMENT RESTAURÉE DE LA VERSION ORIGINALE ---
-        
-        forward, strafe = movement_vector
+    def update(self, movement_vector, mouse_delta, delta_time, game_map, tile_size):
+        """
+        CORRIGÉ : Accepte un nouvel argument 'tile_size' pour le mouvement 2D.
+        """
+        if self.mode == "3D":
+            self._update_3d_movement(movement_vector, mouse_delta, delta_time, game_map)
+        elif self.mode == "2D":
+            self._update_2d_movement(movement_vector, delta_time, game_map, tile_size)
 
-        # A. On calcule l'angle AVANT de mettre à jour la rotation du joueur.
+        self.active_weapon.update(delta_time)
+        if self.active_weapon.state == "attack" and self.active_weapon.can_attack():
+            self.active_weapon.set_state("idle")
+
+        for attr in ["speed", "resist", "invincible"]:
+            timer = getattr(self, f"_tmp_{attr}_timer", 0)
+            if timer > 0:
+                timer -= delta_time
+                setattr(self, f"_tmp_{attr}_timer", timer)
+                if timer <= 0:
+                    setattr(self, f"_tmp_{attr}_value", None)
+                    print(f"Effet temporaire terminé : {attr}")
+
+    def _update_3d_movement(self, movement_vector, mouse_delta, delta_time, game_map):
+        forward, strafe = movement_vector
         rad = math.radians(-self.rotation_y)
         sin_y, cos_y = math.sin(rad), math.cos(rad)
 
-        # B. La rotation du joueur est mise à jour.
         self.rotation_y -= mouse_delta[0] * MOUSE_SENSITIVITY
         self.rotation_y %= 360
 
-        # C. On calcule le déplacement final en utilisant la formule exacte qui fonctionnait.
         speed = getattr(self, "_tmp_speed_value", PLAYER_SPEED)
         
         dx = (forward * cos_y + strafe * sin_y) * speed * delta_time
         dz = (forward * sin_y - strafe * cos_y) * speed * delta_time
 
-        # D. On applique le mouvement et les collisions.
         offset = 0.2
         
         next_x = self.position[0] + dx
@@ -106,19 +111,30 @@ class Player(GameObject):
         if 0 <= cell_z < len(game_map.grid) and 0 <= cell_x < len(game_map.grid[0]) and game_map.grid[cell_z][cell_x] in game_map.floor_textures:
             self.position[2] = next_z
 
-        # --- 2. MISE À JOUR DE L'ARME ET DES EFFETS (logique nouvelle et conservée) ---
-        self.active_weapon.update(delta_time)
-        if self.active_weapon.state == "attack" and self.active_weapon.can_attack():
-            self.active_weapon.set_state("idle")
-
-        for attr in ["speed", "resist", "invincible"]:
-            timer = getattr(self, f"_tmp_{attr}_timer", 0)
-            if timer > 0:
-                timer -= delta_time
-                setattr(self, f"_tmp_{attr}_timer", timer)
-                if timer <= 0:
-                    setattr(self, f"_tmp_{attr}_value", None)
-                    print(f"Effet temporaire terminé : {attr}")
+    def _update_2d_movement(self, movement_vector, delta_time, game_map, tile_size):
+        """
+        MODIFIÉ : Logique de mouvement et de collision en 2D, utilise la taille de tuile pour la vitesse.
+        """
+        strafe, forward = movement_vector
+        speed = getattr(self, "_tmp_speed_value", OVERWORLD_PLAYER_SPEED)
+        
+        dx = strafe * speed * delta_time
+        dy = forward * speed * delta_time
+        
+        next_x = self.position[0] + dx
+        next_y = self.position[1] + dy
+        
+        offset = self.size_2d / tile_size / 2
+        
+        # Collision en X
+        if 0 <= int(next_x + (offset if dx > 0 else -offset)) < len(game_map.grid[0]) and \
+           game_map.grid[int(self.position[1])][int(next_x + (offset if dx > 0 else -offset))] in game_map.floor_textures:
+            self.position[0] = next_x
+            
+        # Collision en Y
+        if 0 <= int(next_y + (offset if dy > 0 else -offset)) < len(game_map.grid) and \
+           game_map.grid[int(next_y + (offset if dy > 0 else -offset))][int(self.position[0])] in game_map.floor_textures:
+            self.position[1] = next_y
 
     def draw(self, renderer):
         pass
@@ -147,17 +163,14 @@ class Player(GameObject):
         if not targets:
             return
 
-        # --- LOGIQUE POUR ARMES À DISTANCE ---
         if weapon.weapon_type == "ranged":
             closest_target = min(targets, key=lambda t: t[0])
             distance_to_target, pnj_to_damage = closest_target
             if distance_to_target <= weapon.range:
                 pnj_to_damage.take_damage(weapon.power)
 
-        # --- LOGIQUE POUR ARMES DE MÊLÉE ---
         elif weapon.weapon_type == "melee":
             
-            # CAS 1 : Attaque de type "coup de poing" (cible unique)
             if weapon.melee_behavior == "single_target":
                 closest_target = min(targets, key=lambda t: t[0])
                 distance_to_target, pnj_to_damage = closest_target
@@ -167,7 +180,6 @@ class Player(GameObject):
                 else:
                     print("Coup de poing dans le vide.")
 
-            # CAS 2 : Attaque de type "balayage" (aire d'effet)
             elif weapon.melee_behavior == "area_effect":
                 enemies_hit = 0
                 for distance, pnj in targets:
@@ -192,7 +204,7 @@ class Player(GameObject):
         if not self.inventory_weapons:
             return
         
-        self.weapon_index = (self.weapon_index + direction) % len(self.inventory_weapons)
+        self.weapon_index = (self.inventory_index + direction) % len(self.inventory_weapons)
         self.equip(self.inventory_weapons[self.weapon_index])
 
     def take_damage(self, amount, renderer=None):
@@ -210,24 +222,13 @@ class Player(GameObject):
             self.item_index = len(self.inventory_items) - 1
 
     def pickup_weapon(self, item):
-        # On récupère le nom de l'arme depuis les attributs de l'item ramassé
         weapon_name = item.weapon_attrs.get("name")
         if not weapon_name:
-            # Sécurité pour éviter de ramasser une arme non définie
             return
 
-        # On récupère la configuration associée à ce nom
         weapon_config = WEAPON_CONFIG.get(weapon_name, {})
-
-        # --- CORRECTION ---
-        # On crée le nouvel objet arme en passant explicitement son nom,
-        # en plus des autres statistiques du dictionnaire de configuration.
         new_weapon = Weapon(name=weapon_name, **weapon_config)
-
-        # On ajoute la nouvelle arme (correctement nommée) à l'inventaire
         self.inventory_weapons.append(new_weapon)
-        
-        # On sélectionne et équipe automatiquement la nouvelle arme
         self.weapon_index = len(self.inventory_weapons) - 1
         self.equip(new_weapon)
 
@@ -244,7 +245,7 @@ class Player(GameObject):
 
     def get_selected_item(self):
         if 0 <= self.item_index < len(self.inventory_items):
-            return self.inventory_items[self.item_index]
+            return self.inventory_items[self.inventory_index]
         return None
         
     def use_selected_item(self):
