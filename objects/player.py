@@ -1,6 +1,7 @@
 # objects/player.py
 
 import math
+import pygame
 from objects.game_object import GameObject
 from objects.weapon import Weapon
 from config import PLAYER_SPEED, MOUSE_SENSITIVITY, WEAPON_CONFIG, OVERWORLD_PLAYER_SPEED
@@ -62,13 +63,16 @@ class Player(GameObject):
                 y += sy
         return True
 
-    def update(self, movement_vector, mouse_delta, delta_time, game_map, tile_size):
+    def update(self, movement_vector, mouse_delta, delta_time, game_map, tile_size=None):
         """
-        CORRIGÉ : Accepte un nouvel argument 'tile_size' pour le mouvement 2D.
+        Gère la mise à jour du joueur pour les modes 2D et 3D.
+        'tile_size' est optionnel pour la compatibilité avec le mode 3D.
         """
         if self.mode == "3D":
             self._update_3d_movement(movement_vector, mouse_delta, delta_time, game_map)
         elif self.mode == "2D":
+            if tile_size is None:
+                raise ValueError("tile_size must be provided for 2D mode")
             self._update_2d_movement(movement_vector, delta_time, game_map, tile_size)
 
         self.active_weapon.update(delta_time)
@@ -113,28 +117,84 @@ class Player(GameObject):
 
     def _update_2d_movement(self, movement_vector, delta_time, game_map, tile_size):
         """
-        MODIFIÉ : Logique de mouvement et de collision en 2D, utilise la taille de tuile pour la vitesse.
+        MODIFIÉ: Utilise un masque de collision qui représente uniquement le rectangle du bâtiment,
+        permettant au joueur d'accéder aux portes qui sont géométriquement à l'extérieur.
         """
         strafe, forward = movement_vector
-        speed = getattr(self, "_tmp_speed_value", OVERWORLD_PLAYER_SPEED)
+        speed_in_pixels = getattr(self, "_tmp_speed_value", OVERWORLD_PLAYER_SPEED) * tile_size
         
-        dx = strafe * speed * delta_time
-        dy = forward * speed * delta_time
+        dx = strafe * speed_in_pixels * delta_time
+        dy = forward * speed_in_pixels * delta_time * -1
         
-        next_x = self.position[0] + dx
-        next_y = self.position[1] + dy
-        
-        offset = self.size_2d / tile_size / 2
-        
-        # Collision en X
-        if 0 <= int(next_x + (offset if dx > 0 else -offset)) < len(game_map.grid[0]) and \
-           game_map.grid[int(self.position[1])][int(next_x + (offset if dx > 0 else -offset))] in game_map.floor_textures:
-            self.position[0] = next_x
+        current_pixel_x = self.position[0] * tile_size
+        current_pixel_y = self.position[1] * tile_size
+
+        player_mask = pygame.mask.Mask((int(self.size_2d), int(self.size_2d)), True)
+
+        # Mouvement en X
+        next_pixel_x = current_pixel_x + dx
+        collision_x = False
+        for building in game_map.building_positions:
+            if not building.get('mask'): continue
             
-        # Collision en Y
-        if 0 <= int(next_y + (offset if dy > 0 else -offset)) < len(game_map.grid) and \
-           game_map.grid[int(next_y + (offset if dy > 0 else -offset))][int(self.position[0])] in game_map.floor_textures:
-            self.position[1] = next_y
+            scale_ratio = (tile_size * 0.5) / 64 # LOGO_SIZE
+            
+            scaled_width = int(building['texture_width'] * scale_ratio)
+            scaled_height = int(building['texture_height'] * scale_ratio)
+            if scaled_width == 0 or scaled_height == 0: continue
+            
+            scaled_building_mask = building['mask'].scale((scaled_width, scaled_height))
+            
+            scaled_anchor_x = building['anchor_x'] * scale_ratio
+            scaled_anchor_y = building['anchor_y'] * scale_ratio
+            
+            # Position du coin de l'image entière du bâtiment
+            building_image_x = building['x'] * tile_size - scaled_anchor_x
+            building_image_y = building['y'] * tile_size - scaled_anchor_y
+            
+            # L'offset est maintenant entre le joueur et le coin de l'image
+            offset_x = (next_pixel_x - self.size_2d / 2) - building_image_x
+            offset_y = (current_pixel_y - self.size_2d / 2) - building_image_y
+
+            if scaled_building_mask.overlap(player_mask, (int(offset_x), int(offset_y))):
+                collision_x = True
+                break
+        
+        if not collision_x:
+            current_pixel_x = next_pixel_x
+
+        # Mouvement en Y
+        next_pixel_y = current_pixel_y + dy
+        collision_y = False
+        for building in game_map.building_positions:
+            if not building.get('mask'): continue
+
+            scale_ratio = (tile_size * 0.5) / 64
+            scaled_width = int(building['texture_width'] * scale_ratio)
+            scaled_height = int(building['texture_height'] * scale_ratio)
+            if scaled_width == 0 or scaled_height == 0: continue
+            
+            scaled_building_mask = building['mask'].scale((scaled_width, scaled_height))
+
+            scaled_anchor_x = building['anchor_x'] * scale_ratio
+            scaled_anchor_y = building['anchor_y'] * scale_ratio
+            
+            building_image_x = building['x'] * tile_size - scaled_anchor_x
+            building_image_y = building['y'] * tile_size - scaled_anchor_y
+            
+            offset_x = (current_pixel_x - self.size_2d / 2) - building_image_x
+            offset_y = (next_pixel_y - self.size_2d / 2) - building_image_y
+
+            if scaled_building_mask.overlap(player_mask, (int(offset_x), int(offset_y))):
+                collision_y = True
+                break
+        
+        if not collision_y:
+            current_pixel_y = next_pixel_y
+
+        self.position[0] = current_pixel_x / tile_size
+        self.position[1] = current_pixel_y / tile_size
+
 
     def draw(self, renderer):
         pass
@@ -204,7 +264,7 @@ class Player(GameObject):
         if not self.inventory_weapons:
             return
         
-        self.weapon_index = (self.inventory_index + direction) % len(self.inventory_weapons)
+        self.weapon_index = (self.weapon_index + direction) % len(self.inventory_weapons)
         self.equip(self.inventory_weapons[self.weapon_index])
 
     def take_damage(self, amount, renderer=None):
@@ -245,7 +305,7 @@ class Player(GameObject):
 
     def get_selected_item(self):
         if 0 <= self.item_index < len(self.inventory_items):
-            return self.inventory_items[self.inventory_index]
+            return self.inventory_items[self.item_index]
         return None
         
     def use_selected_item(self):

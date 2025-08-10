@@ -7,27 +7,56 @@ from world.map import GameMap
 from objects.player import Player
 from config import TARGET_FPS, DEFAULT_MAP
 
+
+
 class GameEngine:
-    def __init__(self, screen, map_path): # Ajout de map_path
+    def __init__(self, screen, map_path, spawn_id=None): # Ajout de spawn_id
         self.screen = screen
         self.running = True
-
-        # On stocke le chemin de la carte pour la recharger si besoin
         self.map_path = map_path
 
-        # Composants du moteur
         self.input_manager = InputManager()
         self.renderer = Renderer(self.screen)
         self.game_map = GameMap()
 
-        # Entités du jeu
         self.pnjs = []
         self.items = []
 
-        # Chargement des ressources et placement du joueur
         self.load_resources()
-        spawn_pos = self._find_free_cell()
-        self.player = Player(position=[spawn_pos[0] + 0.5, 0.5, -spawn_pos[1] - 0.5])
+        # On utilise le spawn_id pour trouver la position de départ
+        spawn_pos = self._find_spawn_position(spawn_id)
+        self.player = Player(position=[spawn_pos[0], 0.5, -spawn_pos[1]])
+
+
+    def _find_spawn_position(self, spawn_id):
+        """
+        NOUVEAU: Cherche un point de spawn par ID dans la carte.
+        S'il n'est pas trouvé, utilise le premier disponible ou un fallback.
+        """
+        spawn_points = self.game_map.spawn_points # On suppose que la carte charge un dict spawn_points
+        
+        if spawn_id and spawn_id in spawn_points:
+            # Position trouvée par ID
+            pos = spawn_points[spawn_id]
+            return pos[0], pos[1]
+        elif spawn_points:
+            # Prend le premier point de spawn de la liste
+            first_key = list(spawn_points.keys())[0]
+            pos = spawn_points[first_key]
+            return pos[0], pos[1]
+        else:
+            # Fallback si aucun point de spawn n'est défini
+            print("AVERTISSEMENT: Aucun point de spawn trouvé, utilisation d'une position par défaut.")
+            return self._find_free_cell()
+
+
+    def _find_free_cell(self):
+        """Trouve une case de sol libre pour faire apparaître le joueur."""
+        for y, row in enumerate(self.game_map.grid):
+            for x, cell in enumerate(row):
+                if cell in self.game_map.floor_textures:
+                    return (x + 0.5, y + 0.5) # Centré sur la tuile
+        return (1.5, 1.5) # Fallback
 
     def load_resources(self):
         """Charge la carte, les textures et initialise les entités du niveau."""
@@ -93,14 +122,6 @@ class GameEngine:
         self.renderer.render_hud(self.player, self.pnjs, self.items, self.game_map)
         self.renderer.swap_buffers()
 
-    def _find_free_cell(self):
-        """Trouve une case de sol libre pour faire apparaître le joueur."""
-        for y, row in enumerate(self.game_map.grid):
-            for x, cell in enumerate(row):
-                if cell in self.game_map.floor_textures:
-                    return (x, y)
-        return (1, 1) # Fallback
-   # dans engine/game_engine.py
 
     def update(self, delta_time):
         """

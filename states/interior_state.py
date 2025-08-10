@@ -13,7 +13,7 @@ class InteriorState(BaseState):
     Il est responsable de l'initialisation, de la mise à jour et
     du rendu de la partie "Doom-like" du jeu.
     """
-    def __init__(self, manager, screen, map_path): # Ajout de map_path
+    def __init__(self, manager, screen, map_path, spawn_id=None): # Ajout de spawn_id
         super().__init__(manager)
         
         self.screen = screen
@@ -21,8 +21,8 @@ class InteriorState(BaseState):
         pygame.mouse.set_visible(False)
         pygame.event.set_grab(True)
         
-        # On passe le chemin de la carte au moteur de jeu
-        self.game_engine = GameEngine(self.screen, map_path)
+        # On passe le chemin de la carte ET le spawn_id au moteur de jeu
+        self.game_engine = GameEngine(self.screen, map_path, spawn_id)
 
     def update(self, delta_time):
         """

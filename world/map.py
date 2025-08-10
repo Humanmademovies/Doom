@@ -2,11 +2,11 @@
 
 import json
 import os
+import pygame
 from objects.foe import Foe
 from objects.friend import Friend
 from objects.item import Item
 from .sprite_analyzer import find_logo_positions, LOGO_SIZE
-
 
 class GameMap:
     def __init__(self):
@@ -18,8 +18,10 @@ class GameMap:
         self.item_positions = []
         self.building_positions = []
         self.transition_points = []
+        self.spawn_points = {} # NOUVEL ATTRIBUT
         self.current_map_path = None
-
+        
+        
     def load_from_file(self, filepath):
         self.current_map_path = filepath
         if not os.path.exists(filepath):
@@ -33,86 +35,101 @@ class GameMap:
             self.foe_positions = data.get("foes", [])
             self.item_positions = data.get("items", [])
             self.building_positions = data.get("buildings", [])
+            self.spawn_points = data.get("spawn_points", {}) # NOUVELLE LIGNE
+        
+        self._process_buildings()
 
-        self._load_building_transitions()
-
-    def _load_building_transitions(self):
+    def _process_buildings(self):
+        """
+        MODIFIÉ: Le masque de collision est maintenant généré en isolant uniquement les pixels
+        du rectangle principal du bâtiment (couleur 180, 180, 180), excluant ainsi les logos.
+        """
         self.transition_points = []
+        processed_buildings = []
+
+        BUILDING_COLOR = (180, 180, 180)
+
         for building_data in self.building_positions:
             sprite_path = building_data.get("sprite")
-            if not sprite_path:
-                continue
+            if not sprite_path: continue
 
-            logo_positions = find_logo_positions(f"assets/sprites/{sprite_path}")
+            full_sprite_path = f"assets/sprites/{sprite_path}"
+            
+            try:
+                image = pygame.image.load(full_sprite_path).convert_alpha()
+                width, height = image.get_size()
+            except pygame.error:
+                width, height, image = 0, 0, None
+
+            building_data['texture_width'] = width
+            building_data['texture_height'] = height
+
+            if image:
+                # Création d'une surface temporaire pour isoler le bâtiment
+                building_only_surface = pygame.Surface((width, height), pygame.SRCALPHA)
+                
+                # On ne copie que les pixels de la couleur du bâtiment
+                for y in range(height):
+                    for x in range(width):
+                        if image.get_at((x, y)) == BUILDING_COLOR:
+                            building_only_surface.set_at((x, y), (255, 255, 255, 255))
+                
+                # Le masque est généré à partir de cette surface épurée
+                building_data['mask'] = pygame.mask.from_surface(building_only_surface)
+            else:
+                building_data['mask'] = None
+
+            logo_positions = find_logo_positions(full_sprite_path)
             
             if logo_positions:
-                total_x = sum(p[0] for p in logo_positions)
-                total_y = sum(p[1] for p in logo_positions)
-                center_x = total_x / len(logo_positions)
-                center_y = total_y / len(logo_positions)
-                
-                world_x = building_data["x"] + center_x / LOGO_SIZE
-                world_y = building_data["y"] + center_y / LOGO_SIZE
+                for i, (logo_x, logo_y) in enumerate(logo_positions):
+                    self.transition_points.append({
+                        "position_on_map": (building_data['x'], building_data['y']),
+                        "anchor_in_sprite": (logo_x + LOGO_SIZE / 2, logo_y + LOGO_SIZE / 2),
+                        "target_map": building_data.get("target_map"),
+                        "target_spawn_id": f"{building_data.get('target_spawn_id', 'spawn')}_{i}"
+                    })
+                building_data['anchor_x'] = sum(p[0] + LOGO_SIZE / 2 for p in logo_positions) / len(logo_positions)
+                building_data['anchor_y'] = sum(p[1] + LOGO_SIZE / 2 for p in logo_positions) / len(logo_positions)
+            else:
+                building_data['anchor_x'] = width / 2
+                building_data['anchor_y'] = height / 2
+            
+            processed_buildings.append(building_data)
 
-                self.transition_points.append({
-                    "position": (world_x, world_y),
-                    "target_map": building_data.get("target_map"),
-                    "target_spawn_id": building_data.get("target_spawn_id")
-                })
-        print(f"Points de transition détectés : {self.transition_points}")
+        self.building_positions = processed_buildings
 
     def get_wall_geometry(self):
         geometry = []
         for y, row in enumerate(self.grid):
             for x, cell in enumerate(row):
                 if cell in self.wall_textures:
-                    if cell in self.wall_textures:
-                        texture = self.wall_textures[cell]
-                        geometry.append({
-                            "vertices": [
-                                (x, 0, -y),
-                                (x + 1, 0, -y),
-                                (x + 1, 1, -y),
-                                (x, 1, -y)
-                            ],
-                            "texture": texture
-                        })
-                        geometry.append({
-                            "vertices": [
-                                (x + 1, 0, -y - 1),
-                                (x, 0, -y - 1),
-                                (x, 1, -y - 1),
-                                (x + 1, 1, -y - 1)
-                            ],
-                            "texture": texture
-                        })
-                        geometry.append({
-                            "vertices": [
-                                (x + 1, 0, -y),
-                                (x + 1, 0, -y - 1),
-                                (x + 1, 1, -y - 1),
-                                (x + 1, 1, -y)
-                            ],
-                            "texture": texture
-                        })
-                        geometry.append({
-                            "vertices": [
-                                (x, 0, -y - 1),
-                                (x, 0, -y),
-                                (x, 1, -y),
-                                (x, 1, -y - 1)
-                            ],
-                            "texture": texture
-                        })
-                        geometry.append({
-                            "vertices": [
-                                (x, 1, -y),
-                                (x + 1, 1, -y),
-                                (x + 1, 1, -y - 1),
-                                (x, 1, -y - 1)
-                            ],
-                            "texture": texture
-                        })
+                    texture = self.wall_textures[cell]
+                    # Face avant
+                    geometry.append({
+                        "vertices": [(x, 0, -y), (x + 1, 0, -y), (x + 1, 1, -y), (x, 1, -y)],
+                        "texture": texture
+                    })
+                    # Face arrière
+                    geometry.append({
+                        "vertices": [(x + 1, 0, -y - 1), (x, 0, -y - 1), (x, 1, -y - 1), (x + 1, 1, -y - 1)],
+                        "texture": texture
+                    })
+                    # Face droite
+                    geometry.append({
+                        "vertices": [(x + 1, 0, -y), (x + 1, 0, -y - 1), (x + 1, 1, -y - 1), (x + 1, 1, -y)],
+                        "texture": texture
+                    })
+                    # Face gauche
+                    geometry.append({
+                        "vertices": [(x, 0, -y - 1), (x, 0, -y), (x, 1, -y), (x, 1, -y - 1)],
+                        "texture": texture
+                    })
+                    # Plafond
+                    geometry.append({
+                        "vertices": [(x, 1, -y), (x + 1, 1, -y), (x + 1, 1, -y - 1), (x, 1, -y - 1)],
+                        "texture": texture
+                    })
         return geometry
 
     def get_floor_geometry(self):
@@ -126,15 +143,6 @@ class GameMap:
                     })
         return geometry
 
-    def _generate_wall_quad(self, x, y):
-        return [
-        (x, 0, -y),
-        (x + 1, 0, -y),
-        (x + 1, 1, -y),
-        (x, 1, -y)
-    ]
-
-
     def _generate_floor_quad(self, x, y):
         return [
             (x, 0, -y),
@@ -142,22 +150,23 @@ class GameMap:
             (x + 1, 0, -y - 1),
             (x, 0, -y - 1)
         ]
+
     def _find_nearest_valid_position(self, start_x, start_y):
         from collections import deque
         visited = set()
-        queue = deque()
-        queue.append((start_x, start_y))
+        queue = deque([(start_x, start_y)])
         while queue:
             x, y = queue.popleft()
-            if (0 <= y < len(self.grid)) and (0 <= x < len(self.grid[0])):
+            if 0 <= y < len(self.grid) and 0 <= x < len(self.grid[0]):
                 if self.grid[y][x] in self.floor_textures:
                     return x, y
-                for dx, dy in [(-1,0), (1,0), (0,-1), (0,1)]:
+                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                     nx, ny = x + dx, y + dy
                     if (nx, ny) not in visited:
                         visited.add((nx, ny))
                         queue.append((nx, ny))
         return start_x, start_y
+
     def get_initial_pnjs(self):
         pnjs = []
         for pos in self.foe_positions + self.friend_positions:
@@ -179,6 +188,7 @@ class GameMap:
             else:
                 pnjs.append(Foe(name=name, position=world_pos))
         return pnjs
+
     def get_initial_items(self):
         items = []
         for pos in self.item_positions:
