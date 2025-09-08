@@ -1,0 +1,30 @@
+{
+  "map": [
+    ["v", "v", "v", "v", "v", "v", "v", "v", "v", "v"],
+    ["v", "v", "v", "v", "v", "v", "v", "v", "v", "v"],
+    ["v", "v", "v", "v", "v", "v", "v", "v", "v", "v"],
+    ["n", "n", "n", "n", "n", "n", "n", "n", "n", "n"],
+    ["n", "n", "n", "n", "n", "n", "n", "n", "n", "n"],
+    ["n", "n", "n", "n", "n", "n", "n", "n", "n", "n"],
+    ["v", "v", "v", "v", "v", "v", "v", "v", "v", "v"],
+    ["v", "v", "v", "v", "v", "v", "v", "v", "v", "v"],
+    ["v", "v", "v", "v", "v", "v", "v", "v", "v", "v"]
+  ],
+  "wall_textures": {},
+  "floor_textures": {
+    "v": [0, 150, 0],   
+    "n": [50, 50, 50]
+  },
+  "foes": [],
+  "friends": [],
+  "items": [],
+  "buildings": [
+    {
+      "x": 4,
+      "y": 3,
+      "sprite": "building_1.png",
+      "target_map": "assets/maps/interior_test_map.json",
+      "target_spawn_id": "spawn_1"
+    }
+  ]
+}
