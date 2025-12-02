@@ -115,12 +115,13 @@ doom_gemini_edition/
 │   ├── serialization.py (Implémenté)
 │   │   ├── serialize_object()
 │   │   └── deserialize_object()
-│   ├── game_session.py (À faire)
+│   ├── game_session.py (MANQUANT - PRIORITAIRE)
 │   │   └── GameSession
+│   │       ├── data (dict: health, inventory, etc.)
+│   │       ├── get_player_data()
+│   │       └── update_from_player(player_obj)
 │   ├── quest_manager.py (À faire)
-│   │   └── QuestManager
 │   └── dialogue_manager.py (À faire)
-│       └── DialogueManager
 ├── ai/
 │   └── behavior.py (Implémenté)
 │       └── decide_action()
@@ -150,11 +151,9 @@ doom_gemini_edition/
 
 #### 2. `game_state_manager.py`
 
-
-
-- **Statut :** (Implémenté, À modifier)
-- **Description :** C'est le chef d'orchestre du jeu. Il gère la pile d'états et assure la transition entre eux. Les fonctions `save_game()` et `load_game()` sont présentes et fonctionnent.
-- **À modifier :** Il devra gérer une instance de `GameSession` pour la persistance des données entre les états de jeu.
+- **Statut :** (Implémenté, À REFACTORISER)
+- **Description :** Chef d'orchestre. Gère la pile d'états.
+- **Modification Critique :** Doit posséder l'attribut `self.game_session`. C'est lui qui instancie la session lors d'une "Nouvelle Partie" et la transmet aux états (`push_state`, `switch_state`).
 
 
 
@@ -213,29 +212,36 @@ doom_gemini_edition/
 
 
 - **Statut :** (Implémenté, À modifier)
+
 - **Description :** Contient la hiérarchie des objets du jeu.
   - `game_object.py` : Classe de base pour toutes les entités. (Implémenté)
+  
   - `player.py` : Représente le joueur, ses statistiques, son inventaire d'armes et d'objets, et son pool de munitions. (Implémenté)
+  
   - `player.py` : La classe devra gérer un état interne pour son mode de jeu (`2D` ou `3D`). (À modifier)
+  
   - `weapon.py` : Définit le comportement et les statistiques d'une arme. (Implémenté)
+  
   - `weapon.py` : La fonctionnalité de changement de mode de tir (`"semi"`, `"auto"`) n'est pas encore implémentée. (À faire)
+  
   - `item.py` : Représente un objet ramassable. Sa logique est un aiguillage intelligent vers les méthodes du joueur. (Implémenté)
+  
   - `pnj.py` : Classe de base pour les PNJ. (Implémenté)
+  
   - `friend.py` : PNJ non-hostile, avec un comportement de dialogue basique. (Implémenté)
+  
   - `foe.py` : PNJ hostile, utilisant l'IA pour patrouiller, poursuivre et attaquer. (Implémenté)
-
-
+  
+    
 
 #### 8. `gameplay/`
 
-
-
-- **Statut :** (Implémenté, À faire)
-- **Description :** Ce dossier est destiné à la logique de jeu avancée.
-  - `serialization.py` : Contient les fonctions de sérialisation et de désérialisation des objets. (Implémenté)
-  - `game_session.py` : Contiendrait toutes les données persistantes du joueur (santé, inventaire, quêtes) pour les transitions entre les états. (À faire)
+- **Statut :** (Partiel)
+- **Description :** Logique de jeu transverse.
+  - `serialization.py` : Utilitaires JSON. (Implémenté)
+  - `game_session.py` : **PIÈCE MAÎTRESSE MANQUANTE.** Conteneur de données persistant qui survit à la destruction des états (Overworld/Interior). Doit contenir : PV, Inventaire, Munitions, Position de retour Overworld. (À faire immédiatement)
   - `quest_manager.py` : Gèrera le système de quêtes. (À faire)
-  - `dialogue_manager.py` : Gèrera les interactions de dialogue avec les PNJ. (À faire)
+  - `dialogue_manager.py` : Gèrera les dialogues. (À faire)
 
 
 

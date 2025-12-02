@@ -8,81 +8,47 @@ Voici la feuille de route mise à jour, qui se concentre sur les prochaines éta
 
 
 
-## Feuille de Route Technique (Mise à Jour)
+## Feuille de Route Technique (Mise à Jour - FOCUS PERSISTANCE)
 
+**ÉTAT CRITIQUE :** La Phase 2 (Overworld) est fonctionnelle, mais la **Phase 3 est bloquée**. Les transitions entre la carte 2D et les niveaux 3D réinitialisent actuellement le joueur (perte d'inventaire, de PV, etc.) car aucune session globale n'existe.
 
+### **PRIORITÉ ABSOLUE : Phase 3 - Persistance et Session (BLOQUANT)**
 
+**Objectif :** Implémenter la `GameSession` pour stocker l'état du joueur indépendamment des niveaux. Sans cela, le jeu n'est qu'une suite de niveaux déconnectés.
 
+- **[URGENT] Création de `gameplay/game_session.py`**
+  - **Détails :** Classe conteneur (Singleton ou instance unique dans le Manager) qui stocke :
+    - `player_stats` (PV, max_health)
+    - `inventory` (items, armes, munitions)
+    - `world_state` (carte actuelle, position d'entrée dans l'Overworld pour le retour)
+    - `flags` (état des quêtes, dialogues déjà lus)
 
-### **Phase 3 : Persistance des Données du Joueur**
+- **[URGENT] Refonte du `GameStateManager`**
+  - **Détails :** Il doit initialiser la `GameSession` au démarrage (`MenuState` -> Nouvelle Partie) et la passer en argument à chaque nouvel état (`OverworldState`, `InteriorState`).
 
+- **[URGENT] Connexion des États**
+  - **Modifier `OverworldState` :** À l'initialisation, charger la position et l'état du joueur depuis la `GameSession`.
+  - **Modifier `InteriorState` / `GameEngine` :** À l'initialisation, configurer le `Player` 3D avec les stats de la `GameSession`. En fin de niveau (ou transition), mettre à jour la `GameSession`.
 
+- **Refonte de la Sauvegarde/Chargement**
+  - **Détails :** Le système actuel (qui cherche dans `InteriorState`) est obsolète.
+  - La sauvegarde doit maintenant sérialiser uniquement l'objet `GameSession`.
 
-**Objectif :** Rendre l'expérience de jeu continue. Les informations du joueur (santé, inventaire, etc.) doivent être conservées lorsqu'il passe d'un intérieur (3D) à l'extérieur (2D), et vice-versa.
+---
 
-- **Fichier à créer :** `gameplay/game_session.py`
-  - **Détails :** Créer une classe `GameSession` qui contiendra toutes les données persistantes :
-    - `player_health`
-    - `player_inventory_items`
-    - `player_inventory_weapons`
-    - `player_ammo_pool`
-    - `active_quests` (pour la phase 4)
-    - La position du joueur dans l'Overworld pour qu'il réapparaisse au bon endroit en sortant d'un bâtiment.
-- **Fichier à modifier :** `game_state_manager.py`
-  - **Détails :** Le manager devra posséder une instance de `GameSession`. Au lieu de créer des états "vides", il leur passera cette session pour qu'ils puissent s'initialiser avec les bonnes données.
-- **Fichiers à modifier :** `states/overworld_state.py` et `states/interior_state.py`
-  - **Détails :** Leurs constructeurs `__init__` devront accepter l'objet `GameSession` et l'utiliser pour configurer le joueur au lieu de le créer de zéro à chaque fois.
+### Phase 4 : Systèmes de Gameplay Avancés (En attente de la Phase 3)
 
-------
+**Objectif :** Donner un but et de la vie au monde. Ne peut être commencé tant que la session n'existe pas.
 
+#### 1. Gestionnaire de Quêtes
+- **Fichier à créer :** `gameplay/quest_manager.py` (Intégré dans `GameSession`)
 
-
-### **Phase 4 : Systèmes de Gameplay Avancés**
-
-
-
-**Objectif :** Donner un but et de la vie au monde avec des quêtes et des dialogues.
-
-
-
-#### **1. Gestionnaire de Quêtes**
-
-
-
-- **Fichier à créer :** `gameplay/quest_manager.py`
-  - **Détails :**
-    - Créer une classe `QuestManager` qui sera stockée dans la `GameSession`.
-    - Définir une structure de quête simple (un dictionnaire ou une classe) avec un `id`, un `titre`, une `description`, et une liste d'objectifs (par exemple : `{"type": "collect", "target_id": "key_office", "completed": false}`).
-    - Le `QuestManager` aura une méthode `notify(event_type, event_data)` qui sera appelée depuis le code du jeu (par exemple, dans `player.py` quand un objet est ramassé) pour vérifier si un objectif de quête est rempli.
-
-
-
-#### **2. Gestionnaire de Dialogue**
-
-
-
+#### 2. Gestionnaire de Dialogue
 - **Fichier à créer :** `gameplay/dialogue_manager.py`
-  - **Détails :**
-    - Créer un `DialogueManager` de base. Dans un premier temps, il pourra simplement charger et afficher des dialogues prédéfinis depuis un fichier JSON.
-    - Créer un nouvel état de jeu `DialogueState` qui se superposera à l'écran, affichant le texte et les options de réponse.
-- **Fichier à modifier :** `objects/friend.py`
-  - **Détails :** La méthode `update` devra détecter une touche d'interaction (par exemple 'E') lorsque le joueur est proche pour déclencher le `DialogueState`.
 
-------
+---
 
+### Améliorations "Quality of Life" (Backlog)
 
-
-### **Améliorations de l'Existant (Qualité de vie)**
-
-
-
-Ces points sont listés dans tes documents et peuvent être faits à tout moment.
-
-- **Fichier à modifier :** `objects/weapon.py` et `engine/input_manager.py`
-  - **Détails :** Ajouter un attribut `fire_mode` ("semi", "auto") aux armes et la logique pour basculer entre les modes. L'`InputManager` devra distinguer un clic simple (`is_mouse_clicked`) d'un clic maintenu (`is_mouse_held`).
-- **Fichier à modifier :** `objects/player.py`
-  - **Détails :**
-    - Limiter l'inventaire d'armes (par exemple, à 4).
-    - Si le joueur ramasse une arme alors que l'inventaire est plein, "lâcher" l'arme actuellement équipée à sa place.
-
-Je suis prêt pour la prochaine instruction.
+- **Armes :** Sélecteur de tir (Semi/Auto) dans `weapon.py`.
+- **Inventaire :** Limite d'armes et drop au sol.
