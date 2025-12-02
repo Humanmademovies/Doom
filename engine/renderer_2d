@@ -1,0 +1,117 @@
+# engine/renderer_2d.py
+
+import pygame
+import os
+from OpenGL.GL import *
+from config import SCREEN_WIDTH, SCREEN_HEIGHT
+
+class Renderer2D:
+    def __init__(self, screen):
+        self.screen = screen
+        self.textures = {}
+        self.camera_x = 0
+        self.camera_y = 0
+
+        # On configure le rendu 2D OpenGL
+        glMatrixMode(GL_PROJECTION)
+        glLoadIdentity()
+        glOrtho(0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, -1, 1)
+        glMatrixMode(GL_MODELVIEW)
+        glLoadIdentity()
+        glDisable(GL_DEPTH_TEST)
+        glEnable(GL_TEXTURE_2D)
+
+        self._load_textures()
+
+    def _load_textures(self):
+        """Charge toutes les textures nécessaires au mode 2D."""
+        # Pour l'instant, on se concentre sur les textures de sol et les sprites
+        for folder in ["assets/textures/", "assets/sprites/", "assets/pnj/"]:
+            for root, _, files in os.walk(folder):
+                for file in files:
+                    if file.lower().endswith((".png", ".jpg", ".bmp")):
+                        path = os.path.join(root, file)
+                        try:
+                            texture_id = self._load_texture_from_file(path)
+                            relative_path = os.path.relpath(path, "assets").replace("\\", "/")
+                            self.textures[relative_path] = texture_id
+                            self.textures[file] = texture_id
+                            # print(f"Texture chargée 2D : {file}")
+                        except Exception as e:
+                            print(f"Erreur chargement texture 2D : {file} -> {e}")
+
+    def _load_texture_from_file(self, path):
+        surface = pygame.image.load(path).convert_alpha()
+        image_data = pygame.image.tostring(surface, "RGBA", True)
+        width, height = surface.get_size()
+
+        texture_id = glGenTextures(1)
+        glBindTexture(GL_TEXTURE_2D, texture_id)
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+
+        return texture_id
+
+    def draw_map(self, game_map):
+        """Dessine le calque du sol et des murs de la carte."""
+        tile_size = 32  # Taille en pixels d'une tuile
+        
+        # On peut adapter pour dessiner des murs si besoin, mais pour l'overworld
+        # on se concentre sur le sol
+        for y, row in enumerate(game_map.grid):
+            for x, cell in enumerate(row):
+                if cell in game_map.floor_textures:
+                    texture_name = game_map.floor_textures[cell]
+                    texture_id = self.textures.get(f"textures/{texture_name}")
+                    if texture_id:
+                        self._draw_quad_with_texture(
+                            (x * tile_size, y * tile_size),
+                            (tile_size, tile_size),
+                            texture_id
+                        )
+
+    def draw_sprites(self, sprites):
+        """Dessine une liste de sprites (joueur, PNJ, objets)."""
+        # On active la transparence
+        glEnable(GL_BLEND)
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+
+        for sprite_data in sprites:
+            position = sprite_data["position"]
+            texture_name = sprite_data["texture"]
+            size = sprite_data.get("size", 32)
+            
+            texture_id = self.textures.get(texture_name)
+            if not texture_id:
+                print(f"Sprite non trouvé pour le rendu 2D : {texture_name}")
+                continue
+
+            self._draw_quad_with_texture(
+                (position[0] - size/2, position[1] - size/2),
+                (size, size),
+                texture_id
+            )
+
+        glDisable(GL_BLEND)
+
+    def _draw_quad_with_texture(self, position, size, texture_id):
+        x, y = position
+        width, height = size
+
+        glBindTexture(GL_TEXTURE_2D, texture_id)
+
+        glBegin(GL_QUADS)
+        glTexCoord2f(0, 0); glVertex2f(x, y)
+        glTexCoord2f(1, 0); glVertex2f(x + width, y)
+        glTexCoord2f(1, 1); glVertex2f(x + width, y + height)
+        glTexCoord2f(0, 1); glVertex2f(x, y + height)
+        glEnd()
+
+    def update_camera(self, target_position, map_width, map_height):
+        """
+        Met à jour la position de la caméra pour suivre une cible, en la bornant
+        pour qu'elle ne sorte pas de la carte.
+        (Non utilisé pour l'instant, mais c'est une future fonctionnalité)
+        """
+        pass

@@ -5,155 +5,169 @@ from engine.input_manager import InputManager
 from engine.renderer import Renderer
 from world.map import GameMap
 from objects.player import Player
-from config import TARGET_FPS
-from objects.foe import Foe
+from config import TARGET_FPS, DEFAULT_MAP
+
+
 
 class GameEngine:
-    def __init__(self, screen, map_path=None):
-
+    def __init__(self, screen, map_path, spawn_id=None): # Ajout de spawn_id
         self.screen = screen
-        self.clock = pygame.time.Clock()
         self.running = True
+        self.map_path = map_path
 
-        # Composants du moteur
         self.input_manager = InputManager()
         self.renderer = Renderer(self.screen)
         self.game_map = GameMap()
 
-        self.pnjs = []  # À remplir selon la carte ou le générateur
-        self.items = []  # À remplir selon la carte ou le générateur
+        self.pnjs = []
+        self.items = []
 
-        # Chargement de la carte et des ressources avant de placer le joueur
-        self.load_resources(map_path)
+        self.load_resources()
+        # On utilise le spawn_id pour trouver la position de départ
+        spawn_pos = self._find_spawn_position(spawn_id)
+        self.player = Player(position=[spawn_pos[0], 0.5, -spawn_pos[1]])
 
-        spawn_pos = self._find_free_cell()
-        self.player = Player(position=(spawn_pos[0] + 0.5, 0.5, -spawn_pos[1] - 0.5))
 
-    def load_resources(self, map_path=None):
-        map_to_load = map_path or "assets/maps/medium_map.json"
-        self.game_map.load_from_file(map_to_load)
+    def _find_spawn_position(self, spawn_id):
+        """
+        NOUVEAU: Cherche un point de spawn par ID dans la carte.
+        S'il n'est pas trouvé, utilise le premier disponible ou un fallback.
+        """
+        spawn_points = self.game_map.spawn_points # On suppose que la carte charge un dict spawn_points
+        
+        if spawn_id and spawn_id in spawn_points:
+            # Position trouvée par ID
+            pos = spawn_points[spawn_id]
+            return pos[0], pos[1]
+        elif spawn_points:
+            # Prend le premier point de spawn de la liste
+            first_key = list(spawn_points.keys())[0]
+            pos = spawn_points[first_key]
+            return pos[0], pos[1]
+        else:
+            # Fallback si aucun point de spawn n'est défini
+            print("AVERTISSEMENT: Aucun point de spawn trouvé, utilisation d'une position par défaut.")
+            return self._find_free_cell()
+
+
+    def _find_free_cell(self):
+        """Trouve une case de sol libre pour faire apparaître le joueur."""
+        for y, row in enumerate(self.game_map.grid):
+            for x, cell in enumerate(row):
+                if cell in self.game_map.floor_textures:
+                    return (x + 0.5, y + 0.5) # Centré sur la tuile
+        return (1.5, 1.5) # Fallback
+
+    def load_resources(self):
+        """Charge la carte, les textures et initialise les entités du niveau."""
+        # On utilise le chemin fourni au lieu de la constante
+        self.game_map.load_from_file(self.map_path) 
         self.pnjs = self.game_map.get_initial_pnjs()
         self.items = self.game_map.get_initial_items()
         self.renderer.load_textures()
 
     def update(self, delta_time):
+        """
+        Mise à jour, qui peut maintenant retourner une action comme "PAUSE".
+        """
+        # La boucle for event parcourt tous les événements en attente
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.running = False
+                return None # On quitte
+            
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                return "REQUEST_PAUSE" # On envoie un signal
+
+            # Ce bloc a été indenté pour être à l'intérieur de la boucle for
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 4:  # Molette vers le haut
+                    self.player.scroll_weapons(-1)
+                elif event.button == 5:  # Molette vers le bas
+                    self.player.scroll_weapons(1)
+
+        # 1. Mise à jour des entrées utilisateur
         self.input_manager.update()
+
+        # 2. Gestion des actions du joueur
+        if self.input_manager.is_up_pressed(): self.player.scroll_items(-1)
+        if self.input_manager.is_down_pressed(): self.player.scroll_items(1)
+        
+        if self.input_manager.is_key_just_pressed(pygame.K_SPACE): self.player.use_selected_item()
+        if self.input_manager.is_key_pressed(pygame.K_r): self.player.reload_weapon()
+
+        # 3. Mise à jour du joueur
         move_vector = self.input_manager.get_movement_vector()
         mouse_delta = self.input_manager.get_mouse_delta()
-
-        if self.input_manager.is_up_pressed():
-            self.player.scroll_items(-1)
-        elif self.input_manager.is_down_pressed():
-            self.player.scroll_items(1)
-
-        if self.input_manager.is_left_pressed():
-            self.player.scroll_weapons(-1)
-        elif self.input_manager.is_right_pressed():
-            self.player.scroll_weapons(1)
-
-        if self.input_manager.is_key_pressed(pygame.K_SPACE):
-            self.player.use_selected_item()
-
-
-
         self.player.update(move_vector, mouse_delta, delta_time, self.game_map)
 
-        if self.input_manager.is_mouse_pressed() and self.player.can_attack:
-            self.player.perform_attack(self.pnjs, self.game_map)
+        # 4. Logique de tir
+        if self.input_manager.is_mouse_held():
+            self.player.fire(self.pnjs, self.game_map)
 
-        for pnj in self.pnjs:
-            pnj.update(self.player, delta_time, self.game_map, self.renderer)
+        # 5. Mise à jour des PNJ et items
+        for pnj in self.pnjs: pnj.update(self.player, delta_time, self.game_map, self.renderer)
+        for item in self.items: item.update(self.player, delta_time)
 
-
-        for item in self.items:
-            item.update(self.player)
+        # Si aucune action spéciale n'est retournée, on retourne None par défaut
+        return None
 
     def render(self):
+        """Gère tout le rendu graphique."""
         self.renderer.clear()
-        self.renderer.render_world(self.game_map)
         self.renderer.render_player(self.player)
+        self.renderer.render_world(self.game_map)
         self.renderer.render_pnjs(self.pnjs)
         self.renderer.render_entities(self.items)
         self.renderer.render_hud(self.player, self.pnjs, self.items, self.game_map)
         self.renderer.swap_buffers()
 
-    def _find_free_cell(self):
-        for y, row in enumerate(self.game_map.grid):
-            for x, cell in enumerate(row):
-                if cell in self.game_map.floor_textures:
-                    return (x, y)
-        return (1, 1)
 
+    def update(self, delta_time):
+        """
+        Mise à jour, qui peut maintenant retourner une action comme "PAUSE" ou "GAME_OVER".
+        """
+        # Vérification de la mort du joueur en début de frame
+        if self.player.health <= 0:
+            return "GAME_OVER"
 
-    def run(self):
-        while self.running:
-            delta_time = self.clock.tick(TARGET_FPS) / 1000.0
+        # La boucle for event parcourt tous les événements en attente
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.running = False
+                return None # On quitte
+            
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                return "REQUEST_PAUSE" # On envoie un signal
 
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.running = False
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 4:  # Molette vers le haut
+                    self.player.scroll_weapons(-1)
+                elif event.button == 5:  # Molette vers le bas
+                    self.player.scroll_weapons(1)
 
-            self.update(delta_time)
-            self.render()
+        # 1. Mise à jour des entrées utilisateur
+        self.input_manager.update()
 
-    def _render_inventory(self, player):
-        x_start = 20
-        y_start = 60
-        icon_size = 32
-        spacing = 5
+        # 2. Gestion des actions du joueur
+        if self.input_manager.is_up_pressed(): self.player.scroll_items(-1)
+        if self.input_manager.is_down_pressed(): self.player.scroll_items(1)
+        
+        if self.input_manager.is_key_just_pressed(pygame.K_SPACE): self.player.use_selected_item()
+        if self.input_manager.is_key_pressed(pygame.K_r): self.player.reload_weapon()
 
-        # --- INVENTAIRE D'ITEMS (GAUCHE) ---
-        for idx, item in enumerate(player.inventory_items):
-            if item.item_type == "potion" and hasattr(item, "effect"):
-                effect_type = item.effect.get("type")
-                sprite_name = f"potion_{effect_type}.png"
-            else:
-                sprite_name = f"{item.item_type}.png"
+        # 3. Mise à jour du joueur
+        move_vector = self.input_manager.get_movement_vector()
+        mouse_delta = self.input_manager.get_mouse_delta()
+        self.player.update(move_vector, mouse_delta, delta_time, self.game_map)
 
-            texture = self.textures.get(sprite_name)
-            if not texture:
-                print(f"[HUD] Texture manquante pour {sprite_name}")
-                continue
+        # 4. Logique de tir
+        if self.input_manager.is_mouse_held():
+            self.player.fire(self.pnjs, self.game_map)
 
-            is_selected = (idx == player.item_index)
-            scale = 1.2 if is_selected else 1.0
-            size = int(icon_size * scale)
-            x = x_start + idx * (icon_size + spacing)
-            y = y_start - (size - icon_size) // 2
+        # 5. Mise à jour des PNJ et items
+        for pnj in self.pnjs: pnj.update(self.player, delta_time, self.game_map, self.renderer)
+        for item in self.items: item.update(self.player, delta_time)
 
-            glBindTexture(GL_TEXTURE_2D, texture)
-            glBegin(GL_QUADS)
-            glTexCoord2f(0, 0); glVertex2f(x, y)
-            glTexCoord2f(1, 0); glVertex2f(x + size, y)
-            glTexCoord2f(1, 1); glVertex2f(x + size, y + size)
-            glTexCoord2f(0, 1); glVertex2f(x, y + size)
-            glEnd()
-
-        # --- INVENTAIRE D'ARMES (DROITE) ---
-        total = len(player.inventory_weapons)
-        for idx, item in enumerate(player.inventory_weapons):
-            name = item.weapon_attrs.get("name", "unknown") if hasattr(item, "weapon_attrs") else "unknown"
-            sprite_name = f"weapon_{name}.png"
-            texture = self.textures.get(sprite_name)
-            if not texture:
-                print(f"[HUD] Texture manquante pour {sprite_name}")
-                continue
-
-            is_selected = (idx == player.weapon_index)
-            scale = 1.2 if is_selected else 1.0
-            size = int(icon_size * scale)
-            x = SCREEN_WIDTH - (total - idx) * (icon_size + spacing)
-            y = y_start - (size - icon_size) // 2
-
-            glBindTexture(GL_TEXTURE_2D, texture)
-            glBegin(GL_QUADS)
-            glTexCoord2f(0, 0); glVertex2f(x, y)
-            glTexCoord2f(1, 0); glVertex2f(x + size, y)
-            glTexCoord2f(1, 1); glVertex2f(x + size, y + size)
-            glTexCoord2f(0, 1); glVertex2f(x, y + size)
-            glEnd()
-
-            # Affichage des munitions si présentes
-            ammo = getattr(item, "ammo", None)
-            if ammo is not None:
-                self._draw_text(f"x{ammo}", x + size + 2, y + size // 2 - 8)
+        # Si aucune action spéciale n'est retournée, on retourne None par défaut
+        return None

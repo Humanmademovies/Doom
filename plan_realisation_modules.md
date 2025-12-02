@@ -1,243 +1,174 @@
+Here's the updated `plan_realisation_modules.md`, focusing only on the work that still needs to be done or modified, based on the current state of the repository.
 
-# Plan de Réalisation des Modules Python
 
-## 1. `main.py`
-### Objectif :
-Point d’entrée de l’application.
 
-### Étapes de mise en œuvre :
-- Importer `pygame`, `config`, `GameEngine` depuis `engine`.
-- Initialiser Pygame et la fenêtre.
-- Charger la configuration globale.
-- Créer une instance de `GameEngine`.
-- Démarrer la boucle principale (`engine.run()`).
-- Gérer les exceptions (avec un bloc `try/except` autour de la boucle principale).
+# Plan de Réalisation Technique des Modules
 
----
 
-## 2. `config.py`
-### Objectif :
-Centraliser les paramètres globaux.
 
-### Étapes de mise en œuvre :
-- Définir les dimensions de la fenêtre (`SCREEN_WIDTH`, `SCREEN_HEIGHT`).
-- Définir les paramètres de jeu (vitesse, FOV, distance de rendu...).
-- Spécifier les chemins des assets (textures, sons).
-- Ajouter un système de lecture/écriture depuis un fichier `.ini` ou `.json` si besoin d’une configuration modifiable.
-
----
-
-## 3. `engine/game_engine.py`
-### Objectif :
-Coordonner toutes les composantes du jeu.
-
-### Étapes de mise en œuvre :
-- Créer une classe `GameEngine` avec les attributs :
-  - `renderer`, `input_manager`, `world_map`, `player`, `enemies`, `items`.
-- Méthodes :
-  - `load_resources()`
-  - `update(delta_time)`
-  - `render()`
-  - `run()` : boucle principale avec `while running`
-- Gestion du framerate (`pygame.time.Clock`).
-
----
-
-## 4. `engine/renderer.py`
-### Objectif :
-Rendu 3D avec PyOpenGL.
-
-### Étapes de mise en œuvre :
-- Initialiser OpenGL (perspective, viewport).
-- Créer et lier les shaders.
-- Charger les textures depuis `assets/textures/`.
-- Gérer le rendu :
-  - du sol et des murs (mesh générés depuis la map),
-  - des sprites (billboarding : alignement face à la caméra).
-- Utiliser `glDrawArrays`/`glDrawElements` pour le rendu.
-
----
-
-## 5. `engine/input_manager.py`
-### Objectif :
-Gestion des entrées clavier/souris.
-
-### Étapes de mise en œuvre :
-- Capturer les événements Pygame.
-- Traduire les touches `zqsd` en vecteurs de mouvement.
-- Utiliser les mouvements de souris pour la rotation de la vue.
-- Fournir une API : `get_movement_vector()`, `get_mouse_delta()`.
-
----
-
-## 6. `world/map.py`
-### Objectif :
-Structure de la carte et génération de géométrie.
-
-### Étapes de mise en œuvre :
-- Représenter la carte avec un array 2D.
-- Fournir une méthode pour charger une carte depuis un fichier texte ou JSON.
-- Fonction `generate_geometry()` : retourne les positions des murs et sols pour le rendu.
-- Associer les IDs aux textures murales ou de sol.
-
----
-
-## 7. `world/level_generator.py`
-### Objectif :
-Génération dynamique ou procédurale.
-
-### Étapes de mise en œuvre :
-- Algorithmes de type :
-  - Générateur de labyrinthe (DFS, Prim…),
-  - Placement aléatoire d’ennemis et objets.
-- Exporter la carte au format exploitable par `map.py`.
-
----
-
-## 8. `objects/game_object.py`
-### Objectif :
-Classe de base des entités.
-
-### Étapes de mise en œuvre :
-- Attributs communs : position, direction, modèle 3D ou sprite.
-- Méthodes virtuelles :
-  - `update()`
-  - `draw(renderer)`
-- Préparer des hooks pour l’IA, l’interaction ou la physique.
-
----
-
-## 9. `objects/player.py`
-### Objectif :
-Gestion du joueur.
-
-### Étapes de mise en œuvre :
-- Hériter de `GameObject`.
-- Ajouter les attributs :
-  - vie, niveau, statistiques, inventaire.
-- Intégrer les entrées du joueur.
-- Gérer les collisions et les interactions.
-
----
-
-## 10. `objects/pnj.py`
-
-### Objectif :
-
-Définir une base commune pour tous les personnages non-joueurs.
-
-### Étapes de mise en œuvre :
-
-- Hériter de `GameObject`.
-- Définir les attributs communs : position, sprite, visibilité, santé.
-- Gérer un comportement neutre par défaut (`idle`).
-- Fournir une méthode `update()` vide ou passive, destinée à être surchargée.
+Ce document détaille les étapes d'implémentation restantes pour faire évoluer le projet vers son architecture finale.
 
 ------
 
-## 11. `objects/friend.py`
 
-### Objectif :
 
-Implémenter un PNJ non-hostile.
+## Phase 2 : Le Monde Extérieur (Overworld)
 
-### Étapes de mise en œuvre :
 
-- Hériter de `PNJ`.
-- Ne pas attaquer le joueur.
-- (Optionnel) Ajouter un comportement d'interaction ou de déplacement simple.
-- Afficher un sprite distinct (`friend.png` ou équivalent).
+
+**Objectif :** Développer le mode de jeu en 2D vue de dessus.
+
+
+
+### 1. Création de l'État du Monde Extérieur
+
+
+
+- **Fichier à créer :** `states/overworld_state.py`
+- **Détails d'implémentation :**
+  - Créer une classe `OverworldState` qui hérite de `BaseState`.
+  - `__init__()`: Chargera une carte spécifique au monde 2D.
+  - `update()`: Gérera la logique de déplacement du joueur en 2D et les interactions.
+  - `render()`: Fera appel à un nouveau moteur de rendu 2D.
+
+
+
+### 2. Création du Moteur de Rendu 2D
+
+
+
+- **Fichier à créer :** `engine/renderer_2d.py`
+- **Détails d'implémentation :**
+  - Ce sera une classe `Renderer2D` beaucoup plus simple que le renderer 3D.
+  - Elle utilisera principalement `pygame.draw` et `screen.blit`.
+  - Méthodes à créer :
+    - `draw_map(map_data)`: Dessine le sol et les obstacles à partir d'un tileset.
+    - `draw_sprite(sprite, position)`: Dessine le joueur, les PNJ, etc.
+    - Gérera une caméra 2D qui suit le joueur.
+
+
+
+### 3. Adaptation de l'Objet `Player`
+
+
+
+- **Fichier à modifier :** `objects/player.py`
+- **Détails d'implémentation :**
+  - La classe `Player` devra gérer un état interne (`self.mode = "3D"` ou `"2D"`).
+  - La méthode `update` devra avoir une branche : `if self.mode == "3D": ... else: ...`.
+  - La logique de mouvement 2D sera plus simple (4 ou 8 directions).
 
 ------
 
-## 12. `objects/foe.py`
 
-### Objectif :
 
-Implémenter un PNJ hostile (ancien comportement des ennemis).
+## Phase 3 : Transitions et Persistance des Données
 
-### Étapes de mise en œuvre :
 
-- Hériter de `PNJ`.
-- Intégrer les décisions via `ai/behavior.py`.
-- Implémenter les actions :
-  - Suivre le joueur (`chase`)
-  - Attaquer à proximité (`attack`)
-- Gérer les collisions et la visibilité.
 
-## 13. `objects/item.py`
-### Objectif :
-Objets interactifs.
+**Objectif :** Permettre au joueur de passer de la 2D à la 3D de manière fluide, en conservant ses données.
 
-### Étapes de mise en œuvre :
-- Hériter de `GameObject`.
-- Attributs : type (arme, potion…), effet associé.
-- Déclenchement d’effet à la collecte (`on_pickup()`).
-- Rendu en sprite face à la caméra.
 
----
 
-## 14. `ai/behavior.py`
-### Objectif :
-Implémentation d’une IA simple.
+### 1. Création d'un Objet de Session
 
-### Étapes de mise en œuvre :
-- Définir des classes ou fonctions pour différents comportements :
-  - Patrouille, poursuite, attaque, fuite.
-- Utiliser une machine à états :
-  - Chaque ennemi suit un schéma décisionnel.
-- Interfaces :
-  - `decide_action(enemy, environment)`du
 
-#### AJOUT AU PLAN DE RÉALISATION
 
-## **15.** objects/weapon.py
+- **Fichier à créer :** `gameplay/game_session.py`
+- **Détails d'implémentation :**
+  - Créer une classe `GameSession` (ou un simple dictionnaire) qui stockera toutes les données persistantes du joueur :
+    - Santé, inventaire, munitions (`ammo_pool`).
+    - Quêtes actives.
+    - Position du joueur dans le monde 2D.
+  - Cette instance sera créée au début d'une "Nouvelle Partie" et passée en paramètre à chaque nouvel état.
 
-### Objectif :
 
-Représenter une arme équipable utilisée par le joueur.
 
-### Étapes de mise en œuvre :
+### 2. Implémentation des Points de Transition
 
-- Attributs : `name`, `weapon_type` ("melee", "ranged", etc.), `power`, `range`, `state`.
-- Méthodes :
-  - `set_state()` : pour définir l'état visuel (affichage HUD)
-  - Intégration avec `Player.perform_attack()` pour appliquer les dégâts.
-  - Associer un sprite à chaque état.
 
-## **16.** objects/pnj.py
 
-### Objectif :
+- **Fichier à modifier :** `world/map.py`
+- **Détails d'implémentation :**
+  - Ajouter une nouvelle section dans les JSON des cartes 2D : `"transitions": [{"x": 10, "y": 15, "target_map": "...", "target_state": "InteriorState"}]`.
+  - Dans `OverworldState.update()`, vérifier si le joueur se trouve sur une tuile de transition.
+  - Si oui, appeler `self.manager.switch_state(InteriorState(map_path=..., session=...))`.
+  - Faire la même chose pour sortir d'un intérieur et revenir au monde 2D.
 
-Classe de base des personnages non-joueurs.
 
-### Étapes de mise en œuvre :
 
-- Lecture du fichier `config.json` dans le dossier `assets/pnj/<name>`.
-- Initialiser la santé, les caractéristiques (P, S, I), le sprite et le mode.
-- Gérer les dégâts reçus et changement d'état visuel.
+### 3. Sauvegarde et Chargement
 
-## **17.** objects/friend.py
 
-### Objectif :
 
-Implémenter un PNJ non-hostile ou allié.
+- **Fichiers à modifier :** `GameStateManager` et `MenuState`.
+- **Détails d'implémentation :**
+  - Activer les boutons "Sauvegarder" et "Charger" dans le menu principal pour appeler les méthodes correspondantes dans le `GameStateManager`.
 
-### Étapes de mise en œuvre :
+------
 
-- Méthode `update()` : dialogue, soutien en combat, trahison.
-- Système de changement de mode dynamique (ally, foe).
-- Sprite différent selon l'action.
 
-## **18.** **objects/foe.py**
 
-### Objectif :
+## Phase 4 : Systèmes de Gameplay Avancés
 
-PNJ hostile avec IA basée sur `behavior.py`
 
-### Étapes de mise en œuvre :
 
-- Méthode `update()` : appel à `decide_action()`.
-- Routines : patrouille, poursuite, attaque.
-- Vérification de ligne de vue avec `has_line_of_sight()`.
-- Intégration dans le moteur de jeu avec déclenchement d'effet visuel (overlay).
+**Objectif :** Donner de la profondeur au jeu avec des quêtes et des dialogues dynamiques.
+
+
+
+### 1. Gestionnaire de Quêtes
+
+
+
+- **Fichier à créer :** `gameplay/quest_manager.py`
+- **Détails d'implémentation :**
+  - Créer une classe `QuestManager`.
+  - Une instance sera stockée dans l'objet `GameSession`.
+  - Une quête sera un objet avec un `id`, un `titre`, une `description`, et une liste d'objectifs (triggers).
+  - Créer une méthode `notify(event_type, target_id)`.
+
+
+
+### 2. Gestionnaire de Dialogue
+
+
+
+- **Fichier à créer :** `gameplay/dialogue_manager.py`
+- **Détails d'implémentation :**
+  - Créer une classe `DialogueManager`.
+  - Quand le joueur interagit avec un PNJ, un `DialogueState` sera poussé sur la pile du `GameStateManager`.
+  - Cet état affichera une interface de dialogue.
+  - **Intégration d'Ollama :** Utiliser la librairie `requests` pour faire un appel POST à l'API locale d'Ollama. Afficher un indicateur de chargement pendant l'attente de la réponse.
+
+------
+
+
+
+## Améliorations de l'existant
+
+
+
+
+
+### 1. `objects/weapon.py`
+
+
+
+- **Fichiers à modifier :** `objects/weapon.py`, `objects/player.py`, `engine/input_manager.py`.
+- **Détails d'implémentation :**
+  - Ajouter un attribut `fire_mode` (`"semi"`, `"auto"`) à la classe `Weapon`.
+  - Créer une méthode `switch_fire_mode()` dans la classe `Weapon`.
+  - Modifier `InputManager` pour distinguer `is_mouse_clicked()` (pour le mode "semi") et `is_mouse_held()` (pour le mode "auto").
+  - Adapter la logique de tir dans `Player` et `GameEngine` en conséquence.
+
+
+
+### 2. `objects/player.py`
+
+
+
+- **Fichiers à modifier :** `objects/player.py`
+- **Détails d'implémentation :**
+  - Implémenter une limite d'inventaire de 4 armes maximum.
+  - Si le joueur ramasse une nouvelle arme alors que l'inventaire est plein, l'arme actuellement tenue doit être "droppée" sur la carte.

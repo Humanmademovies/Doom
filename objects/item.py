@@ -1,135 +1,117 @@
 # objects/item.py
 
 from objects.game_object import GameObject
-from objects.weapon import Weapon
+# La classe Weapon n'est plus directement nécessaire ici, car la création se fait dans Player
+# from objects.weapon import Weapon 
+
 class Item(GameObject):
+    """
+    Représente un objet interactif dans le monde du jeu, comme une potion, 
+    une arme à ramasser ou un paquet de munitions.
+    """
     
-    def __init__(self, position=(0.0, 0.0, 0.0), item_type="potion", item_id=None, effect=None, weapon_attrs=None):
+    def __init__(self, position=(0.0, 0.0, 0.0), item_type="potion", effect=None, weapon_attrs=None, ammo_attrs=None):
+        """
+        Initialise un item.
+
+        Args:
+            position (tuple): Position (x, y, z) de l'item dans le monde.
+            item_type (str): Le type d'item ("potion", "weapon", "ammo", "key").
+            effect (dict, optional): L'effet d'une potion (ex: {"type": "heal", "value": 25}).
+            weapon_attrs (dict, optional): Les attributs d'une arme à ramasser (ex: {"name": "pistol"}).
+            ammo_attrs (dict, optional): Les attributs d'un paquet de munitions (ex: {"type": "9mm", "amount": 20}).
+        """
         super().__init__(position)
         self.item_type = item_type
-        self.id = item_id or f"{item_type}_{id(self)}"
+        self.id = f"{item_type}_{id(self)}" # ID unique pour l'objet
         self.collected = False
-        self.effect = effect or self._default_effect()
+        
+        # Stockage des attributs spécifiques au type
+        self.effect = effect or {}
         self.weapon_attrs = weapon_attrs or {}
+        self.ammo_attrs = ammo_attrs or {}
 
 
-    def _default_effect(self):
-        if self.item_type == "potion":
-            return {"type": "heal", "value": 25}
-        return {}
-
-
-
-    def update(self, player):
-        # Détection simple : proximité du joueur
+    def update(self, player, delta_time):
+        """
+        Vérifie si le joueur est assez proche pour ramasser l'objet.
+        """
+        # Si l'objet n'a pas été collecté et que le joueur est proche...
         if not self.collected and self._is_near(player.position):
+            # ...on appelle la logique de ramassage.
             self.on_pickup(player)
 
     def draw(self, renderer):
+        """
+        Gère le rendu du sprite de l'item dans le monde.
+        """
         if self.visible and not self.collected:
+            sprite_name = f"sprites/{self.item_type}.png" # Sprite par défaut
+            size = 0.25
 
-            if self.item_type == "potion" and hasattr(self, "effect"):
-                effect_type = self.effect.get("type", "heal")
-                sprite = f"potion_{effect_type}.png"
+            # Logique pour choisir le bon sprite en fonction du type
+            if self.item_type == "potion":
+                sprite_name = f"sprites/potion_{self.effect.get('type', 'heal')}.png"
                 size = 0.2
-            elif self.item_type == "weapon" and hasattr(self, "weapon_attrs"):
+            elif self.item_type == "weapon":
                 name = self.weapon_attrs.get("name", "unknown")
-                sprite = f"weapon_{name}.png"
+                sprite_name = f"sprites/weapon_{name}.png"
                 size = 0.3
-            else:
-                sprite = f"{self.item_type}.png"
-                size = 0.25
-
-            # 🔍 Vérifie que le sprite est chargé
-            if not renderer.textures.get(sprite):
-                print(f"[SPRITE MANQUANT] {sprite} non trouvé dans renderer.textures")
+            # NOUVEAU: On pourrait ajouter un sprite spécifique pour les munitions plus tard
+            # elif self.item_type == "ammo":
+            #     sprite_name = f"sprites/ammo_{self.ammo_attrs.get('type')}.png"
 
             renderer.draw_sprite(
                 (self.position[0], 0.2, self.position[2]),
-                texture_name=sprite,
+                texture_name=sprite_name,
                 size=size
             )
 
 
     def on_pickup(self, player):
+        """
+        MODIFIÉ: Gère ce qui se passe lorsque le joueur ramasse l'objet.
+        La logique est maintenant aiguillée vers les méthodes spécifiques du joueur.
+        """
         self.collected = True
         self.visible = False
-        print(f"[PICKUP] {self.item_type} → {self.id}")
+        print(f"[PICKUP] Objet ramassé: {self.item_type}")
 
+        # --- AIGUILLAGE SELON LE TYPE D'ITEM ---
+        
         if self.item_type == "weapon":
-            # Ajout dans l'inventaire d'items pour affichage et gestion
-            name = self.weapon_attrs.get("name", "custom")
-            weapon = Weapon(
-                name=name,
-                weapon_type=self.weapon_attrs.get("weapon_type", "melee"),
-                power=self.weapon_attrs.get("power", 10),
-                range=self.weapon_attrs.get("range", 1.5)
-            )
-            weapon.ammo = self.weapon_attrs.get("ammo", 0)
-
-            player.inventory_weapons.append(weapon)
-            player.weapon_index = len(player.inventory_weapons) - 1
-            player.equip(weapon)
-            return  # éviter toute autre logique pour les armes
-
-        elif self.item_type == "key":
-            print("Clé ramassée (effet passif).")
+            # On utilise la nouvelle méthode du joueur pour gérer le ramassage d'arme
+            player.pickup_weapon(self)
 
         elif self.item_type == "ammo":
-            for item in player.inventory_weapons:
-                if hasattr(item, "item_type") and item.item_type == "weapon" and self.id.startswith(item.id):
-                    item.ammo += 5  # valeur par défaut
-                    print(f"Munition ajoutée à {item.id} → {item.ammo}")
-                    return
+            # NOUVEAU: On utilise la méthode pour ajouter des munitions au pool du joueur
+            ammo_type = self.ammo_attrs.get("type", "unknown")
+            amount = self.ammo_attrs.get("amount", 0)
+            player.add_ammo(ammo_type, amount)
 
-        else:
+        elif self.item_type == "key":
+            # Les clés ou autres objets de quête peuvent être gérés ici
+            print("Clé ramassée (logique à implémenter).")
+            # player.add_key(self.id) par exemple
+
+        else: # "potion" et autres consommables
+            # Les objets consommables sont ajoutés à l'inventaire pour être utilisés plus tard
             player.add_to_inventory(self)
 
- 
-
-
     def activate(self, player):
+        """
+        Active l'effet d'un item consommable (comme une potion) depuis l'inventaire.
+        """
         if self.item_type == "potion":
             player.apply_effect(self.effect)
 
-        elif self.item_type == "weapon":
-            name = self.weapon_attrs.get("name", "custom")
-            weapon = Weapon(
-                name=name,
-                weapon_type=self.weapon_attrs.get("weapon_type", "melee"),
-                power=self.weapon_attrs.get("power", 10),
-                range=self.weapon_attrs.get("range", 1.5)
-            )
-            weapon.ammo = self.weapon_attrs.get("ammo", 0)
-            player.equip(weapon)
+        # Une fois utilisé, l'objet est retiré de l'inventaire
+        if self in player.inventory_items:
+            player.inventory_items.remove(self)
+        player.item_index = max(0, player.item_index - 1)
 
-        # Ne pas garder l'item si ce n'est pas une arme
-        if self.item_type != "weapon":
-            if self in player.inventory_items:
-                player.inventory_items.remove(self)
-            player.item_index = max(0, player.item_index - 1)
-
-    def _is_near(self, position, threshold=1.0):
+    def _is_near(self, position, threshold=0.8):
+        """Vérifie si une position est proche de l'item."""
         dx = self.position[0] - position[0]
         dz = self.position[2] - position[2]
-        return dx * dx + dz * dz <= threshold * threshold
-
-    def apply_effect(self, effect):
-        etype = effect.get("type")
-        value = effect.get("value", 0)
-        duration = effect.get("duration", 0)
-
-        if etype == "heal":
-            self.health = min(self.health + value, 100)
-            print(f"Santé +{value} → {self.health}")
-        elif etype == "speed":
-            self._apply_temporary_attr("speed", PLAYER_SPEED * (1 + value/100), duration)
-        elif etype == "resistance":
-            self._apply_temporary_attr("resist", value, duration)
-        elif etype == "invincible":
-            self._apply_temporary_attr("invincible", True, duration)
-
-    def _apply_temporary_attr(self, attr, value, duration):
-        setattr(self, f"_tmp_{attr}_value", value)
-        setattr(self, f"_tmp_{attr}_timer", duration)
-        print(f"Effet temporaire : {attr} = {value} pendant {duration}s")
+        return (dx * dx + dz * dz) <= (threshold * threshold)
