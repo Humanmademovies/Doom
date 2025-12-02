@@ -1,120 +1,140 @@
 # game_state_manager.py
 import json
 import os
-from gameplay.serialization import serialize_object, deserialize_object
+from gameplay.game_session import GameSession
 
-# On a besoin de connaître les classes pour la désérialisation, mais on veut éviter les imports circulaires.
-# C'est une astuce pour que le code fonctionne sans erreur.
+# Imports des états pour pouvoir relancer le jeu lors d'un chargement ou nouvelle partie
 from states.interior_state import InteriorState
+from states.overworld_state import OverworldState
 
 class GameStateManager:
     """
-    Gère une pile d'états de jeu (ex: menu, jeu, pause).
-    Seul l'état au sommet de la pile est actif.
+    Gère la pile d'états de jeu et possède la Session de jeu active.
+    C'est le chef d'orchestre de la persistance.
     """
     def __init__(self):
         self.states = []
+        self.game_session = None # La session contenant les données persistantes (PV, Inventaire...)
 
     def push_state(self, state):
-        """Ajoute un état au sommet de la pile."""
         self.states.append(state)
 
     def pop_state(self):
-        """Retire l'état au sommet de la pile."""
         if self.states:
             self.states.pop()
 
     def switch_state(self, state):
-        """Remplace tous les états actuels par un nouveau."""
         while self.states:
             self.states.pop()
         self.states.append(state)
 
     def get_active_state(self):
-        """Retourne l'état actif, s'il y en a un."""
         return self.states[-1] if self.states else None
 
     def update(self, delta_time):
-        """Met à jour l'état actif."""
         active_state = self.get_active_state()
         if active_state:
             active_state.update(delta_time)
 
     def render(self, screen):
-        """Gère le rendu de l'état actif."""
         active_state = self.get_active_state()
         if active_state:
             active_state.render(screen)
 
+    def start_new_session(self, screen):
+        """
+        Appelé par le Menu Principal pour lancer une nouvelle aventure.
+        Crée une session vierge et lance la carte par défaut (Overworld).
+        """
+        print("Création d'une nouvelle session de jeu...")
+        self.game_session = GameSession()
+        
+        # On récupère la carte par défaut définie dans la session
+        initial_map = self.game_session.current_map
+        
+        # On lance l'état Overworld avec cette session
+        # Note: On passe 'self' (le manager) qui contient maintenant la session
+        first_state = OverworldState(self, screen, initial_map)
+        self.switch_state(first_state)
+
     def save_game(self, slot_number=1):
         """
-        CORRIGÉ: Sauvegarde l'état du jeu, même depuis le menu pause.
+        Sauvegarde la session actuelle dans un fichier JSON.
+        Synchronise d'abord les données du joueur actif vers la session.
         """
-        print(f"Tentative de sauvegarde sur l'emplacement {slot_number}...")
-        
-        # On cherche l'état du jeu dans la pile, quel que soit l'état actif
-        game_state = None
-        for state in self.states:
-            if isinstance(state, InteriorState):
-                game_state = state
+        if not self.game_session:
+            print("Erreur: Aucune session active à sauvegarder.")
+            return
+
+        print(f"Préparation de la sauvegarde sur le slot {slot_number}...")
+
+        # 1. SYNCHRONISATION : On cherche l'état de jeu actif pour récupérer les stats fraîches du joueur
+        gameplay_state = None
+        # On parcourt la pile à l'envers pour trouver le premier état de jeu (Interior ou Overworld)
+        # Cela permet de sauvegarder même si on est dans l'état PauseState (qui est au dessus)
+        for state in reversed(self.states):
+            if isinstance(state, (InteriorState, OverworldState)):
+                gameplay_state = state
                 break
-
-        if game_state:
-            game_engine = game_state.game_engine
-            
-            # --- CORRECTION ---
-            # On retire 'patrol_points' de la liste des attributs à ignorer.
-            ignore = ['screen', 'renderer', 'input_manager', 'font', 'damage_overlay_timer', 'camera_position', 'textures']
-
-            save_data = {
-                "player": serialize_object(game_engine.player, ignore),
-                "pnjs": serialize_object(game_engine.pnjs, ignore),
-                "items": serialize_object(game_engine.items, ignore),
-                "map_name": game_engine.game_map.current_map_path
-            }
-            
-            save_filename = f"savegame_{slot_number}.json"
-            with open(save_filename, 'w') as f:
-                json.dump(save_data, f, indent=4, default=lambda o: '<not serializable>')
-            
-            print(f"Partie sauvegardée avec succès dans {save_filename}")
+        
+        if gameplay_state and hasattr(gameplay_state, 'player'):
+            # On met à jour la session avec les PV, munitions et position actuels du joueur
+            self.game_session.save_player_state(gameplay_state.player)
+            print("Données du joueur synchronisées vers la session.")
         else:
-            print("Sauvegarde impossible : aucun état de jeu trouvé dans la pile.")
+            print("Attention : Pas d'état de jeu actif trouvé, sauvegarde de la session en l'état.")
 
-    def load_game(self, slot_number=1):
+        # 2. ÉCRITURE DISQUE
+        save_data = self.game_session.to_dict()
+        save_filename = f"savegame_{slot_number}.json"
+        
+        try:
+            with open(save_filename, 'w') as f:
+                json.dump(save_data, f, indent=4)
+            print(f"Partie sauvegardée avec succès dans {save_filename}")
+        except Exception as e:
+            print(f"Erreur critique lors de la sauvegarde : {e}")
+
+    def load_game(self, slot_number, screen):
         """
-        CORRIGÉ: Charge une partie, même depuis le menu pause.
+        Charge une session depuis un fichier JSON et relance le jeu au bon endroit.
         """
         save_filename = f"savegame_{slot_number}.json"
         if not os.path.exists(save_filename):
             print(f"Aucune sauvegarde trouvée à l'emplacement {slot_number}.")
-            return
+            return False
 
         print(f"Chargement de la partie depuis {save_filename}...")
-        with open(save_filename, 'r') as f:
-            save_data = json.load(f)
+        try:
+            with open(save_filename, 'r') as f:
+                save_data = json.load(f)
 
-        # On cherche l'état de jeu à mettre à jour
-        game_state = None
-        for state in self.states:
-            if isinstance(state, InteriorState):
-                game_state = state
-                break
+            # 1. RECRÉATION DE LA SESSION
+            self.game_session = GameSession()
+            self.game_session.load_from_dict(save_data)
 
-        if game_state:
-            game_engine = game_state.game_engine
+            # 2. DÉTERMINATION DE L'ÉTAT À LANCER
+            current_map = self.game_session.current_map
+            
+            # Logique simple pour savoir si c'est un intérieur ou extérieur basé sur le nom du fichier
+            # Convention: "ext_" = Overworld, "int_" = Interior
+            filename = os.path.basename(current_map)
+            
+            if filename.startswith("int_"):
+                print(f"Reprise en mode Intérieur sur {current_map}")
+                # Note: Le spawn_id n'est pas sauvegardé précisément ici, on reprendra au spawn par défaut
+                # ou il faudrait sauvegarder le last_spawn_id dans la session.
+                new_state = InteriorState(self, screen, current_map)
+            else:
+                print(f"Reprise en mode Overworld sur {current_map}")
+                new_state = OverworldState(self, screen, current_map)
 
-            # Recharger la bonne carte
-            game_engine.game_map.load_from_file(save_data["map_name"])
-            
-            # Recréer les objets depuis les données sauvegardées
-            game_engine.player = deserialize_object(save_data["player"])
-            game_engine.pnjs = deserialize_object(save_data["pnjs"])
-            game_engine.items = deserialize_object(save_data["items"])
-            
-            # Important : s'assurer que les objets non sauvegardés sont ré-initialisés
-            game_engine.renderer.load_textures()
-            
+            self.switch_state(new_state)
             print("Partie chargée avec succès !")
-        else:
-            print("Chargement impossible : il faut être en jeu.")
+            return True
+
+        except Exception as e:
+            print(f"Erreur lors du chargement : {e}")
+            import traceback
+            traceback.print_exc()
+            return False

@@ -13,7 +13,7 @@ class InteriorState(BaseState):
     Il est responsable de l'initialisation, de la mise à jour et
     du rendu de la partie "Doom-like" du jeu.
     """
-    def __init__(self, manager, screen, map_path, spawn_id=None): # Ajout de spawn_id
+    def __init__(self, manager, screen, map_path, spawn_id=None): 
         super().__init__(manager)
         
         self.screen = screen
@@ -21,30 +21,47 @@ class InteriorState(BaseState):
         pygame.mouse.set_visible(False)
         pygame.event.set_grab(True)
         
-        # On passe le chemin de la carte ET le spawn_id au moteur de jeu
-        self.game_engine = GameEngine(self.screen, map_path, spawn_id)
+        # CORRECTION : On passe explicitement la session au moteur
+        self.game_engine = GameEngine(self.screen, map_path, spawn_id, self.manager.game_session)
+
+        # Injection des stats (PV, Armes...) dans le joueur du moteur
+        if self.manager.game_session:
+            self.manager.game_session.apply_to_player(self.game_engine.player)
+            
+        # Raccourci pour que le GameStateManager puisse trouver le joueur lors de la sauvegarde
+        self.player = self.game_engine.player
 
     def update(self, delta_time):
         """
         Délègue la mise à jour et gère les signaux retournés par le moteur de jeu.
         """
-        # On s'assure que la souris est bien cachée quand on joue
         pygame.mouse.set_visible(False)
         pygame.event.set_grab(True)
 
         action = self.game_engine.update(delta_time)
         
-        # GESTION DES SIGNAUX
         if action == "REQUEST_PAUSE":
             from states.pause_state import PauseState
-            # On peut maintenant utiliser self.screen sans erreur
             self.manager.push_state(PauseState(self.manager, self.screen))
             return
 
-        # CORRECTION : On PUSH le nouvel état au lieu de faire un SWITCH.
-        # Cela permet à l'InteriorState de rester en arrière-plan.
         if action == "GAME_OVER":
             self.manager.push_state(GameOverState(self.manager, self.screen))
+            return
+            
+        # NOUVEAU BLOC : Gestion de la sortie vers l'Overworld
+        if isinstance(action, dict) and action.get("type") == "EXIT_TO_MAP":
+            target_map = action["target"]
+            print(f"Sortie du niveau vers : {target_map}")
+            
+            # Sauvegarde des stats actuelles (PV, munitions) avant de partir
+            if self.manager.game_session:
+                self.manager.game_session.save_player_state(self.player)
+                self.manager.game_session.current_map = target_map
+            
+            # Retour à l'Overworld
+            from states.overworld_state import OverworldState
+            self.manager.switch_state(OverworldState(self.manager, self.screen, target_map))
             return
 
         if not self.game_engine.running:

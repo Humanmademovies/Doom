@@ -3,9 +3,12 @@ import os
 from objects.game_object import GameObject
 
 class PNJ(GameObject):
-    def __init__(self, name, position=(0, 0, 0), action="idle"):
+    def __init__(self, name, position=(0, 0, 0), action="idle", obj_id=None):
         super().__init__(position)
         self.name = name
+        # ID stable pour la persistance
+        self.id = obj_id if obj_id else f"{name}_{id(self)}"
+        
         self.dmg_timer = 0.0
 
         config_path = os.path.join("assets", "pnj", name, "config.json")
@@ -25,8 +28,9 @@ class PNJ(GameObject):
         self.state = action
         self.sprite = f"{self.name}_{action}.png"
         self.visible = True
-        self.position = (position[0], self.size , position[2])
+        self.position = [position[0], self.size, position[2]]
         self.speed = 1.0
+        self.inventory = []
 
     def set_action(self, action):
         if self.dmg_timer > 0 and action != "dmg":
@@ -36,26 +40,21 @@ class PNJ(GameObject):
         self.state = action
         self.sprite = f"{self.name}_{action}.png"
 
-
     def update(self, player, delta_time, game_map, renderer):
-
         if self.dmg_timer > 0:
             self.dmg_timer -= delta_time
             if self.dmg_timer <= 0 and self.health > 0:
-                self.set_action("idle")  # ou autre action par défaut
-
+                self.set_action("idle")
 
     def draw(self, renderer):
         if self.visible:
             pos = list(self.position)
+            draw_size = self.size
             if self.state == "dead":
                 pos[1] = 0.2  # poser le sprite au sol
-                self.size = 0.2
-            if self.sprite == "monster_dmg.png":
-                print(f"[DRAW] {self.name} utilise le sprite {self.sprite}")
-            renderer.draw_sprite(tuple(pos), self.sprite, self.size)
-
-
+                draw_size = 0.2
+            
+            renderer.draw_sprite(tuple(pos), self.sprite, draw_size)
 
     def take_damage(self, amount):
         self.health -= amount

@@ -26,12 +26,20 @@ class OverworldState(BaseState):
         
         self.game_map.load_from_file(map_path)
         
-        # Le joueur commence au milieu de la 5ème ligne
-        start_x = len(self.game_map.grid[0]) / 2
-        start_y = 5.0
+        if self.manager.game_session and self.manager.game_session.overworld_position:
+            start_x, start_y = self.manager.game_session.overworld_position
+            # CORRECTION : On déplace le joueur vers le bas (Sud) pour ne pas être SUR la porte
+            start_y += 1.5 
+        else:
+            start_x = len(self.game_map.grid[0]) / 2
+            start_y = 5.0
+
         self.player = Player(position=[start_x, start_y, 0.0])
         self.player.mode = "2D"
-        self.player.size_2d = self.renderer_2d.tile_size * 0.5 # Taille dynamique
+        self.player.size_2d = self.renderer_2d.tile_size * 0.5 
+
+        if self.manager.game_session:
+            self.manager.game_session.apply_to_player(self.player)
 
         pygame.mouse.set_visible(False)
         pygame.event.set_grab(True)
@@ -114,8 +122,13 @@ class OverworldState(BaseState):
                         spawn_id = transition["target_spawn_id"]
                         print(f"Transition vers '{target_map}' au point de spawn '{spawn_id}'")
                         
+                        # SAUVEGARDE CRITIQUE DE L'ÉTAT AVANT TRANSITION
+                        if self.manager.game_session:
+                            self.manager.game_session.save_player_state(self.player)
+                            self.manager.game_session.current_map = target_map
+
                         self.manager.switch_state(InteriorState(self.manager, self.screen, target_map, spawn_id))
-                        return # On quitte dès qu'une transition est trouvée
+                        return 
 
     def render(self, screen):
         """

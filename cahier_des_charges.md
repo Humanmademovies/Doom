@@ -1,254 +1,133 @@
-### Cahier des Charges - Projet Doom-Like (Mise à Jour)
+# Cahier des Charges Technique - Projet Doom Gemini
 
+## 1. Vision du Projet
 
+Le projet est un jeu hybride combinant une exploration en vue de dessus (Overworld 2D) et des phases d'action/exploration en vue subjective (FPS 3D type "Doom-like"). Le jeu repose sur une architecture modulaire stricte, pilotée par une **Session de Jeu** centrale qui assure la persistance des données et la continuité de l'expérience entre les différents modes de vue et les sauvegardes.
 
-Le projet a évolué d'un jeu "Doom-like" monolithique à une architecture modulaire et flexible. La vision finale est un jeu hybride qui combine une exploration en vue de dessus (Overworld 2D) avec des niveaux intérieurs en 3D (style FPS). Cette nouvelle structure permet la gestion de quêtes, de dialogues avancés, et la persistance des données du joueur à travers différentes phases de jeu. Le projet repose sur une machine à états pour orchestrer les transitions entre ces différents modes.
+## 2. Architecture du Projet
 
-------
+Le projet est structuré autour d'un gestionnaire d'états et d'une session de données persistante.
 
-
-
-### Diagramme Hiérarchique du Projet (État Final)
-
-
+### Arborescence des Fichiers
 
 Plaintext
 
 ```
 doom_gemini_edition/
-├── main.py
-│   └── main()
-├── game_state_manager.py (Implémenté, À modifier)
-│   ├── GameStateManager
-│   │   ├── push_state()
-│   │   ├── pop_state()
-│   │   ├── switch_state()
-│   │   ├── get_active_state()
-│   │   ├── update()
-│   │   ├── render()
-│   │   ├── save_game()
-│   │   └── load_game()
-├── config.py (Implémenté)
-│   └── WEAPON_CONFIG
-├── states/
-│   ├── base_state.py (Implémenté)
-│   │   └── BaseState
-│   │       ├── update()
-│   │       └── render()
-│   ├── menu_state.py (Implémenté)
-│   │   └── MenuState
-│   │       └── start_new_game()
-│   ├── map_selection_state.py (Implémenté)
-│   │   └── MapSelectionState
-│   │       └── start_game_with_map()
-│   ├── interior_state.py (Implémenté, À modifier)
-│   │   └── InteriorState
-│   ├── pause_state.py (Implémenté)
-│   │   └── PauseState
-│   │       ├── resume_game()
-│   │       ├── save_game()
-│   │       └── load_game()
-│   ├── game_over_state.py (Implémenté)
-│   │   └── GameOverState
-│   │       └── restart_level()
-│   └── overworld_state.py (À faire)
-│       └── OverworldState
-│           ├── __init__()
-│           ├── update()
-│           └── render()
-├── engine/
-│   ├── __init__.py (Implémenté)
-│   ├── game_engine.py (Implémenté)
-│   │   └── GameEngine
-│   │       ├── update()
-│   │       └── render()
-│   ├── renderer.py (Implémenté)
-│   │   └── Renderer
-│   │       ├── render_hud()
-│   │       ├── _render_ammo_info()
-│   │       └── render_weapon_hud()
-│   ├── renderer_2d.py (À faire)
-│   │   └── Renderer2D
-│   │       ├── draw_map()
-│   │       ├── draw_sprite()
-│   │       └── update_camera()
-│   └── input_manager.py (Implémenté)
-│       └── InputManager
-│           ├── update()
-│           ├── is_mouse_held()
-│           └── is_key_just_pressed()
-├── world/
-│   ├── __init__.py (Implémenté)
-│   ├── map.py (Implémenté, À modifier)
-│   │   └── GameMap
-│   │       ├── load_from_file()
-│   │       └── (Nouvel attribut: transitions)
-│   └── level_generator.py (Implémenté)
-│       └── LevelGenerator
-├── objects/
-│   ├── __init__.py (Implémenté)
-│   ├── game_object.py (Implémenté)
-│   │   └── GameObject
-│   ├── player.py (Implémenté, À modifier)
-│   │   └── Player
-│   │       ├── fire()
-│   │       ├── reload_weapon()
-│   │       ├── pickup_weapon()
-│   │       ├── add_ammo()
-│   │       └── (Nouvel attribut: self.mode)
-│   ├── pnj.py (Implémenté)
-│   │   └── PNJ
-│   │       └── take_damage()
-│   ├── friend.py (Implémenté)
-│   │   └── Friend
-│   ├── foe.py (Implémenté)
-│   │   └── Foe
-│   │       └── update()
-│   ├── weapon.py (Implémenté, À modifier)
-│   │   └── Weapon
-│   │       ├── perform_attack()
-│   │       └── reload()
-│   └── item.py (Implémenté)
-│       └── Item
-│           └── on_pickup()
-├── gameplay/
-│   ├── serialization.py (Implémenté)
-│   │   ├── serialize_object()
-│   │   └── deserialize_object()
-│   ├── game_session.py (MANQUANT - PRIORITAIRE)
-│   │   └── GameSession
-│   │       ├── data (dict: health, inventory, etc.)
-│   │       ├── get_player_data()
-│   │       └── update_from_player(player_obj)
-│   ├── quest_manager.py (À faire)
-│   └── dialogue_manager.py (À faire)
-├── ai/
-│   └── behavior.py (Implémenté)
-│       └── decide_action()
-└── assets/
-    ├── maps/
-    └── ...
+├── main.py                     # Point d'entrée : Initialisation Pygame & Manager
+├── game_state_manager.py       # Chef d'orchestre : Gère la pile d'états et la GameSession
+├── config.py                   # Configuration globale (Constantes, résolutions)
+├── lancer_jeu.sh               # Script de lancement (Environnement Conda)
+│
+├── states/                     # Les différents écrans/modes de jeu
+│   ├── base_state.py           # Classe abstraite parente
+│   ├── menu_state.py           # Menu Principal (Nouvelle Partie / Charger / Quitter)
+│   ├── map_selection_state.py  # Outil de debug pour tester des cartes spécifiques
+│   ├── interior_state.py       # Conteneur du mode FPS 3D
+│   ├── overworld_state.py      # Conteneur du mode Exploration 2D
+│   ├── pause_state.py          # Menu de Pause (Reprendre / Sauvegarder / Charger / Quitter)
+│   └── game_over_state.py      # Écran de fin de partie
+│
+├── engine/                     # Moteur technique
+│   ├── game_engine.py          # Cœur logique 3D : Boucle de jeu, Raycasting (Interaction E), Events
+│   ├── renderer.py             # Moteur de rendu 3D (OpenGL/Raycasting) & HUD
+│   ├── renderer_2d.py          # Moteur de rendu 2D (Tilemap & Sprites)
+│   └── input_manager.py        # Gestion des entrées (Clavier/Souris)
+│
+├── world/                      # Gestion des niveaux
+│   ├── map.py                  # Chargeur de cartes JSON, Générateur d'IDs, Filtre de persistance
+│   ├── level_generator.py      # Générateur procédural (Labyrinthes)
+│   └── sprite_analyzer.py      # Analyse d'images pour détection de portes/logos
+│
+├── objects/                    # Entités du jeu
+│   ├── game_object.py          # Classe de base
+│   ├── player.py               # Avatar du joueur (Stats, Inventaire, Logique de tir)
+│   ├── pnj.py                  # Classe de base des PNJ (ID unique, Santé, États)
+│   ├── friend.py               # PNJ Amical (Interaction dialogue)
+│   ├── foe.py                  # PNJ Hostile (IA, Combat)
+│   ├── item.py                 # Objets ramassables (Potions, Munitions, Armes)
+│   └── weapon.py               # Logique des armes (Tir, Rechargement)
+│
+├── gameplay/                   # Logique de jeu transverse (Le "Cerveau")
+│   ├── game_session.py         # Stockage persistant (Inv, Stats, World State)
+│   ├── serialization.py        # Outils de sérialisation JSON pour Sauvegarde/Chargement
+│   ├── dialogue_manager.py     # (PRÉVU - Phase 4) Gestion des dialogues
+│   └── quest_manager.py        # (PRÉVU - Phase 4) Gestion des quêtes
+│
+├── ai/                         # Intelligence Artificielle
+│   └── behavior.py             # Arbre de comportement simple pour les ennemis
+│
+└── assets/                     # Ressources
+    ├── maps/                   # Fichiers JSON des niveaux (Intérieurs et Extérieurs)
+    ├── textures/               # Textures des murs/sols
+    ├── sprites/                # Sprites des entités et bâtiments
+    └── ui/                     # Éléments d'interface et polices
 ```
 
-------
+## 3. Description Fonctionnelle des Modules
 
+### A. Noyau & Gestion (`root`)
 
+- **`game_state_manager.py`** :
+  - **Rôle :** Gère les transitions entre les écrans (Menu -> Jeu -> Pause).
+  - **Responsabilité critique :** Possède l'instance unique de `GameSession`.
+  - **Fonctions :** `start_new_session()`, `save_game()`, `load_game()`.
+- **`main.py`** : Initialise Pygame et lance la boucle principale du Manager.
 
-### Description des Modules et Fichiers
+### B. Persistance & Données (`gameplay`)
 
+- **`game_session.py`** : **Le Cerveau**.
+  - Stocke l'état complet du joueur : PV, Munitions, Inventaire (Armes/Items).
+  - Stocke l'état du monde (`world_state`) : Dictionnaire par carte listant les IDs des ennemis tués et objets ramassés.
+  - Gère la position de retour dans l'Overworld lors des transitions.
+  - Fournit les méthodes `to_dict()` et `load_from_dict()` pour la sauvegarde disque.
+- **`serialization.py`** : Convertit les objets complexes (Player, Weapon, Item) en dictionnaires pour le JSON et inversement. Gère la robustesse (attributs manquants).
 
+### C. États de Jeu (`states`)
 
+- **`menu_state.py`** : Point d'entrée. Permet de lancer une "Nouvelle Partie" (crée une session vierge) ou de "Charger" une sauvegarde existante.
+- **`overworld_state.py`** : Mode 2D.
+  - Initialise le joueur avec les données de la `GameSession`.
+  - Gère les déplacements sur la carte globale.
+  - Détecte les collisions avec les portes des bâtiments.
+  - **Avant transition :** Sauvegarde la position et les stats du joueur dans la Session.
+- **`interior_state.py`** : Mode 3D.
+  - Initialise le `GameEngine` en lui passant la `GameSession`.
+  - Gère la boucle de gameplay FPS.
+  - Gère le retour à l'Overworld sur signal `EXIT_TO_MAP`.
 
+### D. Moteur & Logique (`engine`)
 
-#### 1. `main.py`
+- **`game_engine.py`** :
+  - Moteur de jeu 3D principal.
+  - Gère la physique, les tirs et les mises à jour des entités.
+  - **Interaction :** Gère le Raycasting pour détecter l'activation des portes (Touche 'E').
+  - **Persistance Live :** Détecte la mort des ennemis et le ramassage des items pour les enregistrer immédiatement dans la `GameSession`.
+- **`renderer.py`** : Moteur de rendu Raycasting/OpenGL pour la 3D et affichage du HUD (Vie, Munitions, Inventaire).
+- **`renderer_2d.py`** : Moteur de rendu pour la vue de dessus (Tilemap, Sprites, Bâtiments).
 
+### E. Monde & Niveaux (`world`)
 
+- **`map.py`** :
+  - Charge les fichiers `.json` de description des niveaux.
+  - **Identité :** Génère des IDs uniques et déterministes pour chaque entité (basés sur leur position x,y).
+  - **Filtrage :** Interroge la `GameSession` au chargement. Si un objet est marqué "collected", il n'est pas instancié. Si un ennemi est marqué "killed", il est instancié directement à l'état de cadavre.
 
-- **Statut :** (Implémenté)
-- **Description :** Point d'entrée de l'application. Initialise Pygame et le `GameStateManager`, puis lance la boucle principale du jeu. Son rôle est minimal, déléguant la logique de jeu aux états.
+### F. Objets Interactifs (`objects`)
 
+- **`item.py`** : Possède un ID unique. Gère son ramassage et son effet.
+- **`pnj.py` / `foe.py`** : Possèdent un ID unique. Gèrent leur état (vivant/mort), leur IA et leurs PV.
 
+## 4. Fonctionnalités Clés Implémentées
 
-#### 2. `game_state_manager.py`
+1. **Hybridité 2D/3D :** Transition fluide entre l'Overworld (Exploration) et les Intérieurs (Combat).
+2. **Persistance Totale :**
+   - Le joueur garde ses acquis (XP, Items, PV) tout au long du jeu.
+   - Le monde se "souvient" des actions du joueur (Monstres éliminés, Coffres ouverts).
+3. **Sauvegarde Universelle :** Possibilité de sauvegarder et charger n'importe où (2D ou 3D), l'état exact est restauré.
+4. **Interaction Environnementale :** Système de portes interactives (Touche 'E') avec Raycasting précis.
 
-- **Statut :** (Implémenté, À REFACTORISER)
-- **Description :** Chef d'orchestre. Gère la pile d'états.
-- **Modification Critique :** Doit posséder l'attribut `self.game_session`. C'est lui qui instancie la session lors d'une "Nouvelle Partie" et la transmet aux états (`push_state`, `switch_state`).
+## 5. Prochaines Étapes (Phase 4)
 
-
-
-#### 3. `config.py`
-
-
-
-- **Statut :** (Implémenté)
-- **Description :** Centralise les paramètres du jeu, tels que les dimensions de l'écran, la vitesse du joueur, et la configuration des armes via le dictionnaire `WEAPON_CONFIG`.
-
-
-
-#### 4. `states/`
-
-
-
-- **Statut :** (Implémenté, À faire)
-- **Description :** Ce dossier contient les classes d'état de jeu, toutes dérivées de `BaseState`.
-  - `base_state.py` : Classe de base abstraite. (Implémenté)
-  - `menu_state.py` : Gère le menu principal et permet de passer à l'écran de sélection de carte. (Implémenté)
-  - `map_selection_state.py` : Permet au joueur de choisir une carte. (Implémenté)
-  - `interior_state.py` : Encapsule le moteur de jeu 3D et gère les transitions vers la pause ou l'écran de fin de partie. (Implémenté)
-  - `pause_state.py` : Gère le menu de pause et offre des options de sauvegarde et de chargement. (Implémenté)
-  - `game_over_state.py` : Gère l'écran de fin de partie. (Implémenté)
-  - `overworld_state.py` : Gérera le gameplay en vue de dessus, les déplacements en 2D et les interactions avec les points de transition. (À faire)
-
-
-
-#### 5. `engine/`
-
-
-
-- **Statut :** (Implémenté, À faire)
-- **Description :** Contient les composants clés du moteur.
-  - `game_engine.py` : Le cœur de l'état `InteriorState`. Gère la boucle de jeu, les mises à jour des entités et la logique de tir. (Implémenté)
-  - `renderer.py` : Gère le rendu 3D avec OpenGL, le HUD (barre de vie, mini-carte, informations sur les munitions) et les sprites. (Implémenté)
-  - `renderer_2d.py` : Gérera le rendu spécifique au mode "Overworld". (À faire)
-  - `input_manager.py` : Gère les entrées clavier et souris. (Implémenté)
-
-
-
-#### 6. `world/`
-
-
-
-- **Statut :** (Implémenté, À modifier)
-- **Description :** Gère les niveaux.
-  - `map.py` : Lit et interprète les fichiers JSON des cartes pour construire l'environnement de jeu. (Implémenté)
-  - `map.py` : Le format JSON des cartes devra être mis à jour pour inclure des points de transition entre les cartes 2D et 3D. (À modifier)
-  - `level_generator.py` : Contient la logique pour la génération procédurale de labyrinthes. (Implémenté, mais non intégré au jeu principal)
-
-
-
-#### 7. `objects/`
-
-
-
-- **Statut :** (Implémenté, À modifier)
-
-- **Description :** Contient la hiérarchie des objets du jeu.
-  - `game_object.py` : Classe de base pour toutes les entités. (Implémenté)
-  
-  - `player.py` : Représente le joueur, ses statistiques, son inventaire d'armes et d'objets, et son pool de munitions. (Implémenté)
-  
-  - `player.py` : La classe devra gérer un état interne pour son mode de jeu (`2D` ou `3D`). (À modifier)
-  
-  - `weapon.py` : Définit le comportement et les statistiques d'une arme. (Implémenté)
-  
-  - `weapon.py` : La fonctionnalité de changement de mode de tir (`"semi"`, `"auto"`) n'est pas encore implémentée. (À faire)
-  
-  - `item.py` : Représente un objet ramassable. Sa logique est un aiguillage intelligent vers les méthodes du joueur. (Implémenté)
-  
-  - `pnj.py` : Classe de base pour les PNJ. (Implémenté)
-  
-  - `friend.py` : PNJ non-hostile, avec un comportement de dialogue basique. (Implémenté)
-  
-  - `foe.py` : PNJ hostile, utilisant l'IA pour patrouiller, poursuivre et attaquer. (Implémenté)
-  
-    
-
-#### 8. `gameplay/`
-
-- **Statut :** (Partiel)
-- **Description :** Logique de jeu transverse.
-  - `serialization.py` : Utilitaires JSON. (Implémenté)
-  - `game_session.py` : **PIÈCE MAÎTRESSE MANQUANTE.** Conteneur de données persistant qui survit à la destruction des états (Overworld/Interior). Doit contenir : PV, Inventaire, Munitions, Position de retour Overworld. (À faire immédiatement)
-  - `quest_manager.py` : Gèrera le système de quêtes. (À faire)
-  - `dialogue_manager.py` : Gèrera les dialogues. (À faire)
-
-
-
-#### 9. `ai/`
-
-
-
-- **Statut :** (Implémenté)
-- **Description :** Module qui contient la logique décisionnelle simple des PNJ.
-  - `behavior.py` : Contient la fonction `decide_action()` qui détermine l'action d'un PNJ en fonction de la distance avec le joueur. (Implémenté)
+- **Système de Dialogues :** Implémentation du `dialogue_manager.py` et de l'état `DialogueState` pour permettre des conversations avec les PNJ amicaux.
+- **Système de Quêtes :** Création du `quest_manager.py` pour structurer la progression du joueur à travers des objectifs.

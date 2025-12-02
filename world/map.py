@@ -18,7 +18,8 @@ class GameMap:
         self.item_positions = []
         self.building_positions = []
         self.transition_points = []
-        self.spawn_points = {} # NOUVEL ATTRIBUT
+        self.spawn_points = {}
+        self.exits = [] # NOUVEL ATTRIBUT
         self.current_map_path = None
         
         
@@ -35,7 +36,10 @@ class GameMap:
             self.foe_positions = data.get("foes", [])
             self.item_positions = data.get("items", [])
             self.building_positions = data.get("buildings", [])
-            self.spawn_points = data.get("spawn_points", {}) # NOUVELLE LIGNE
+            self.spawn_points = data.get("spawn_points", {})
+            
+            # NOUVEAU : Chargement de la config des portes interactives
+            self.doors_config = data.get("doors_config", {}) 
         
         self._process_buildings()
 
@@ -167,48 +171,75 @@ class GameMap:
                         queue.append((nx, ny))
         return start_x, start_y
 
-    def get_initial_pnjs(self):
+    def get_initial_pnjs(self, game_session=None):
         pnjs = []
         for pos in self.foe_positions + self.friend_positions:
             name = pos.get("name")
-            if not name:
-                continue
-            x_init, y_init = pos["x"], pos["y"]
-            if self.grid[y_init][x_init] not in self.floor_textures:
-                x_cell, y_cell = self._find_nearest_valid_position(x_init, y_init)
+            if not name: continue
+            
+            x, y = pos["x"], pos["y"]
+            # Génération d'un ID stable basé sur la position et le nom
+            pnj_id = f"pnj_{name}_{x}_{y}"
+
+            if self.grid[y][x] not in self.floor_textures:
+                x_cell, y_cell = self._find_nearest_valid_position(x, y)
             else:
-                x_cell, y_cell = x_init, y_init
+                x_cell, y_cell = x, y
+            
             world_pos = (x_cell + 0.5, 0, -y_cell - 0.5)
+            
             config_path = os.path.join("assets", "pnj", name, "config.json")
-            with open(config_path, "r") as f:
-                data = json.load(f)
+            with open(config_path, "r") as f: data = json.load(f)
+            
             mode = data.get("mode", "friend")
+            new_pnj = None
+            
             if mode == "friend":
-                pnjs.append(Friend(name=name, position=world_pos))
+                new_pnj = Friend(name=name, position=world_pos, obj_id=pnj_id)
             else:
-                pnjs.append(Foe(name=name, position=world_pos))
+                new_pnj = Foe(name=name, position=world_pos, obj_id=pnj_id)
+
+            # VERIFICATION PERSISTANCE (MORT)
+            if game_session and game_session.is_flagged(self.current_map_path, "killed", pnj_id):
+                new_pnj.health = 0
+                new_pnj.set_action("dead")
+                new_pnj.sprite = f"{name}_dead.png"
+                # On s'assure qu'il est bien au sol
+                new_pnj.position[1] = 0.2
+                new_pnj.size = 0.2
+
+            pnjs.append(new_pnj)
+            
         return pnjs
 
-    def get_initial_items(self):
+    def get_initial_items(self, game_session=None):
+        """
+        Crée les items de la carte en filtrant ceux déjà ramassés.
+        """
         items = []
         for pos in self.item_positions:
             if isinstance(pos, dict) and "x" in pos and "y" in pos and "type" in pos:
+                # Génération d'un ID stable basé sur la position
+                item_id = f"item_{pos['x']}_{pos['y']}"
+                
+                # SI DEJA RAMASSÉ -> ON IGNORE
+                if game_session and game_session.is_flagged(self.current_map_path, "collected", item_id):
+                    continue
+
                 original_x, original_y = pos["x"], pos["y"]
                 if self.grid[original_y][original_x] not in self.floor_textures:
                     new_x, new_y = self._find_nearest_valid_position(original_x, original_y)
                 else:
                     new_x, new_y = original_x, original_y
-                item_type = pos["type"]
-                if item_type == "weapon":
-                    items.append(Item(
-                        position=(new_x + 0.5, 0, -new_y - 0.5),
-                        item_type="weapon",
-                        weapon_attrs=pos.get("weapon_attrs")
-                    ))
-                else:
-                    items.append(Item(
-                        position=(new_x + 0.5, 0, -new_y - 0.5),
-                        item_type=item_type,
-                        effect=pos.get("effect")
-                    ))
+                
+                world_pos = (new_x + 0.5, 0, -new_y - 0.5)
+                
+                items.append(Item(
+                    position=world_pos,
+                    item_type=pos["type"],
+                    effect=pos.get("effect"),
+                    weapon_attrs=pos.get("weapon_attrs"),
+                    ammo_attrs=pos.get("ammo_attrs"),
+                    obj_id=item_id
+                ))
         return items

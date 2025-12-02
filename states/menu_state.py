@@ -6,7 +6,6 @@ from OpenGL.GL import *
 from OpenGL.GLU import *
 
 from states.base_state import BaseState
-from states.interior_state import InteriorState
 from ui.button import Button
 from config import SCREEN_WIDTH, SCREEN_HEIGHT
 
@@ -29,20 +28,22 @@ class MenuState(BaseState):
         # --- Boutons ---
         self.buttons = []
         center_x = self.screen.get_width() / 2
-        new_game_button = Button(
-            x=center_x - 150, y=300, width=300, height=50,
-            text="Nouvelle Partie", callback=self.start_new_game
-        )
-        quit_button = Button(
-            x=center_x - 150, y=400, width=300, height=50,
-            text="Quitter", callback=self.quit_game
-        )
-        self.buttons.extend([new_game_button, quit_button])
         
-        # (Optionnel) Chargement de la texture de fond
+        # Bouton 1 : Nouvelle Aventure (Session Vierge)
+        btn_new = Button(x=center_x - 150, y=200, width=300, height=50, text="Nouvelle Partie", callback=self.start_new_game)
+        
+        # Bouton 2 : Charger (Depuis savegame_1.json)
+        btn_load = Button(x=center_x - 150, y=280, width=300, height=50, text="Charger Partie", callback=self.load_save)
+        
+        # Bouton 3 : Sélection de Carte (Pour vos tests)
+        btn_map = Button(x=center_x - 150, y=360, width=300, height=50, text="Choisir Niveau", callback=self.go_to_map_selection)
+        
+        # Bouton 4 : Quitter
+        btn_quit = Button(x=center_x - 150, y=440, width=300, height=50, text="Quitter", callback=self.quit_game)
+        
+        self.buttons.extend([btn_new, btn_load, btn_map, btn_quit])
+        
         self.background_texture = self._load_background_texture("assets/ui/menu_background.png")
-
-    # dans states/menu_state.py
 
     def _load_background_texture(self, path):
         try:
@@ -56,16 +57,12 @@ class MenuState(BaseState):
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
             return texture_id
-        # --- CORRECTION ICI ---
-        # On attrape la bonne exception : FileNotFoundError
-        except FileNotFoundError:
-            print(f"Image de fond non trouvée à {path}. Utilisation d'une couleur unie.")
+        except (FileNotFoundError, pygame.error):
+            print(f"Image de fond non trouvée ou erreur: {path}. Utilisation d'une couleur unie.")
             return None
 
     def _draw_text(self, text, x, y, dry_run=False):
         """Dessine du texte dans un contexte OpenGL."""
-        # --- CORRECTION ICI ---
-        # La méthode self.font.render() ne retourne qu'une surface, pas un tuple.
         surface = self.font.render(text, True, (255, 255, 255))
         
         width, height = surface.get_size()
@@ -91,17 +88,27 @@ class MenuState(BaseState):
         glTexCoord2f(0, 0); glVertex2f(x, y + height)
         glEnd()
         
-        glDeleteTextures(texture_id)
+        glDeleteTextures(int(texture_id))
 
     def start_new_game(self):
-        """Passe à l'écran de sélection de la carte."""
-        from states.map_selection_state import MapSelectionState # Import local
-        next_state = MapSelectionState(self.manager, self.screen)
-        self.manager.switch_state(next_state)
+        """Lance une nouvelle session de jeu."""
+        self.manager.start_new_session(self.screen)
 
     def quit_game(self):
         pygame.quit()
         sys.exit()
+
+    def go_to_map_selection(self):
+        """Restaure l'accès à l'écran de sélection de carte."""
+        from states.map_selection_state import MapSelectionState
+        self.manager.switch_state(MapSelectionState(self.manager, self.screen))
+
+    def load_save(self):
+        """Tente de charger la sauvegarde n°1."""
+        if self.manager.load_game(1, self.screen):
+            pass 
+        else:
+            print("Echec du chargement (fichier inexistant ?)")
 
     def update(self, delta_time):
         mouse_pos = pygame.mouse.get_pos()
@@ -115,7 +122,6 @@ class MenuState(BaseState):
 
     def render(self, screen):
         """Affiche le menu en utilisant OpenGL."""
-        # Configuration de la vue 2D
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
         glOrtho(0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, -1, 1)
@@ -123,10 +129,8 @@ class MenuState(BaseState):
         glLoadIdentity()
         glDisable(GL_DEPTH_TEST)
         
-        # Efface l'écran
         glClear(GL_COLOR_BUFFER_BIT)
         
-        # Dessine l'arrière-plan
         if self.background_texture:
             glBindTexture(GL_TEXTURE_2D, self.background_texture)
             glBegin(GL_QUADS)
@@ -136,9 +140,8 @@ class MenuState(BaseState):
             glTexCoord2f(0, 1); glVertex2f(0, SCREEN_HEIGHT)
             glEnd()
         else:
-            glClearColor(0.1, 0.1, 0.15, 1.0) # Couleur de fond si pas d'image
+            glClearColor(0.1, 0.1, 0.15, 1.0) 
 
-        # Dessine les boutons
         for button in self.buttons:
             button.draw(self._draw_text)
         

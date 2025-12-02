@@ -86,14 +86,20 @@ class MapSelectionState(BaseState):
         glDeleteTextures(int(texture_id))
 
     def start_game_with_map(self):
+        from gameplay.game_session import GameSession
+        self.manager.game_session = GameSession()
+
         selected_map_file = self.map_files[self.selected_map_index]
         map_path = os.path.join(self.maps_folder, selected_map_file)
         
+        # On force la carte choisie dans la session
+        self.manager.game_session.current_map = map_path
+        
         if selected_map_file.startswith("int_"):
-            print(f"Lancement du jeu en mode intérieur avec la carte : {map_path}")
+            print(f"Lancement manuel INT : {map_path}")
             self.manager.switch_state(InteriorState(self.manager, self.screen, map_path))
         elif selected_map_file.startswith("ext_"):
-            print(f"Lancement du jeu en mode Overworld avec la carte : {map_path}")
+            print(f"Lancement manuel EXT : {map_path}")
             self.manager.switch_state(OverworldState(self.manager, self.screen, map_path))
         else:
-            print(f"Erreur: Impossible de déterminer le type de carte pour : {selected_map_file}")
+            print(f"Erreur: Type de carte inconnu pour {selected_map_file}")

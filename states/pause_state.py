@@ -67,10 +67,8 @@ class PauseState(BaseState):
     # dans states/pause_state.py
 
     def load_game(self):
-        # On appelle la nouvelle méthode du manager
-        self.manager.load_game(1)
-        # Après le chargement, on veut souvent revenir directement au jeu
-        self.resume_game()
+        if self.manager.load_game(1, self.screen):
+            pass
 
     def back_to_main_menu(self):
         # On vide la pile et on retourne au menu principal

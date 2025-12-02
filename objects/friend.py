@@ -1,8 +1,8 @@
 from objects.pnj import PNJ
 
 class Friend(PNJ):
-    def __init__(self, name, position=(0, 0, 0)):
-        super().__init__(name=name, position=position)
+    def __init__(self, name, position=(0, 0, 0), obj_id=None):
+        super().__init__(name=name, position=position, obj_id=obj_id)
         self.dialogue_enabled = True
 
     def update(self, player, delta_time, game_map, renderer):

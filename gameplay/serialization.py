@@ -55,9 +55,9 @@ def serialize_object(obj, ignore_attrs=None):
 def deserialize_object(data):
     """
     CORRIGÉ: Désérialise des données (dictionnaire, liste, ou simple) pour recréer les objets Python.
+    Utilise une copie des dictionnaires pour ne pas altérer les données source en mémoire.
     """
-    # --- CORRECTION : GESTION DES LISTES ---
-    # Si la donnée est une liste, on désérialise chaque élément de la liste.
+    # Si la donnée est une liste, on désérialise chaque élément.
     if isinstance(data, list):
         return [deserialize_object(item) for item in data]
 
@@ -65,8 +65,14 @@ def deserialize_object(data):
     if not isinstance(data, dict):
         return data
 
+    # --- CORRECTION CRITIQUE : COPIE ---
+    # On travaille sur une copie pour ne pas supprimer la clé '__class__' 
+    # des données originales stockées dans la GameSession.
+    data_copy = data.copy()
+
     # Vérifie si le dictionnaire contient une information de classe
-    class_name = data.pop('__class__', None)
+    class_name = data_copy.pop('__class__', None)
+    
     if class_name and class_name in CLASS_MAP:
         cls = CLASS_MAP[class_name]
         
@@ -74,9 +80,9 @@ def deserialize_object(data):
         obj = cls.__new__(cls)
 
         # On parcourt les données du dictionnaire pour remplir les attributs de l'objet
-        for key, value in data.items():
+        for key, value in data_copy.items():
             setattr(obj, key, deserialize_object(value))
         return obj
     
     # Si ce n'est pas un de nos objets custom, c'est un dictionnaire normal
-    return {key: deserialize_object(value) for key, value in data.items()}
+    return {key: deserialize_object(value) for key, value in data_copy.items()}

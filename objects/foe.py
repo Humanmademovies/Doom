@@ -4,8 +4,8 @@ import random
 from math import floor
 
 class Foe(PNJ):
-    def __init__(self, name, position=(0, 0, 0)):
-        super().__init__(name=name, position=position)
+    def __init__(self, name, position=(0, 0, 0), obj_id=None):
+        super().__init__(name=name, position=position, obj_id=obj_id)
         self.patrol_points = [position]
         self.current_patrol_index = 0
         self.attack_timer = 0.0  # temps écoulé depuis la dernière attaque

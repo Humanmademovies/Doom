@@ -1,20 +1,34 @@
 {
   "map": [
-    ["1", "1", "1", "1", "1"],
-    ["1", "0.1", "0.1", "0.1", "1"],
-    ["1", "0.1", "0.1", "0.1", "1"],
-    ["1", "0.1", "0.1", "0.1", "1"],
-    ["1", "1", "1", "1", "1"]
+    ["1", "1", "1", "1", "1", "1"],
+    ["1", "0.1", "0.1", "0.1", "1", "1"],
+    ["1", "0.1", "0.1", "0.1", "0.1", "2"],
+    ["1", "0.1", "0.1", "0.1", "1", "1"],
+    ["1", "1", "1", "1", "1", "1"]
   ],
   "wall_textures": {
-    "1": "stone_wall.png"
+    "1": "stone_wall.png",
+    "2": "door.png"
   },
   "floor_textures": {
     "0.1": "stone_floor.png"
   },
-  "foes": [],
+  "doors_config": {
+    "2": {
+      "target_map": "assets/maps/ext_overworld_test_map.json",
+      "spawn_id": "spawn_1" 
+    }
+  },
+  "foes": [
+    { "x": 2, "y": 2, "name": "monster" }
+  ],
   "friends": [],
-  "items": [],
+  "items": [
+    {
+      "x": 1, "y": 2, "type": "weapon",
+      "weapon_attrs": { "name": "pistol", "weapon_type": "ranged", "power": 20, "range": 8.0 }
+    }
+  ],
   "spawn_points": {
     "spawn_1": [1.5, 1.5]
   }
