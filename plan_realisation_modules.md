@@ -1,174 +1,167 @@
-Here's the updated `plan_realisation_modules.md`, focusing only on the work that still needs to be done or modified, based on the current state of the repository.
+# Plan de Réalisation Technique - Mise à Jour (Phase 4)
 
+Ce document détaille les étapes restantes pour finaliser les systèmes narratifs et affiner le gameplay.
+Les Phases 0 à 3 (Moteur 3D, Overworld 2D, Persistance & Sauvegarde) sont terminées et fonctionnelles.
 
+---
 
-# Plan de Réalisation Technique des Modules
+## Phase 4 : Systèmes de Narration et Quêtes
 
-
-
-Ce document détaille les étapes d'implémentation restantes pour faire évoluer le projet vers son architecture finale.
-
-------
-
-
-
-## Phase 2 : Le Monde Extérieur (Overworld)
-
-
-
-**Objectif :** Développer le mode de jeu en 2D vue de dessus.
-
-
-
-### 1. Création de l'État du Monde Extérieur
-
-
-
-- **Fichier à créer :** `states/overworld_state.py`
-- **Détails d'implémentation :**
-  - Créer une classe `OverworldState` qui hérite de `BaseState`.
-  - `__init__()`: Chargera une carte spécifique au monde 2D.
-  - `update()`: Gérera la logique de déplacement du joueur en 2D et les interactions.
-  - `render()`: Fera appel à un nouveau moteur de rendu 2D.
-
-
-
-### 2. Création du Moteur de Rendu 2D
-
-
-
-- **Fichier à créer :** `engine/renderer_2d.py`
-- **Détails d'implémentation :**
-  - Ce sera une classe `Renderer2D` beaucoup plus simple que le renderer 3D.
-  - Elle utilisera principalement `pygame.draw` et `screen.blit`.
-  - Méthodes à créer :
-    - `draw_map(map_data)`: Dessine le sol et les obstacles à partir d'un tileset.
-    - `draw_sprite(sprite, position)`: Dessine le joueur, les PNJ, etc.
-    - Gérera une caméra 2D qui suit le joueur.
-
-
-
-### 3. Adaptation de l'Objet `Player`
-
-
-
-- **Fichier à modifier :** `objects/player.py`
-- **Détails d'implémentation :**
-  - La classe `Player` devra gérer un état interne (`self.mode = "3D"` ou `"2D"`).
-  - La méthode `update` devra avoir une branche : `if self.mode == "3D": ... else: ...`.
-  - La logique de mouvement 2D sera plus simple (4 ou 8 directions).
-
-------
-
-
-
-## Phase 3 : Transitions et Persistance des Données
-
-
-
-**Objectif :** Permettre au joueur de passer de la 2D à la 3D de manière fluide, en conservant ses données.
-
-
-
-### 1. Création d'un Objet de Session
-
-
-
-- **Fichier à créer :** `gameplay/game_session.py`
-- **Détails d'implémentation :**
-  - Créer une classe `GameSession` (ou un simple dictionnaire) qui stockera toutes les données persistantes du joueur :
-    - Santé, inventaire, munitions (`ammo_pool`).
-    - Quêtes actives.
-    - Position du joueur dans le monde 2D.
-  - Cette instance sera créée au début d'une "Nouvelle Partie" et passée en paramètre à chaque nouvel état.
-
-
-
-### 2. Implémentation des Points de Transition
-
-
-
-- **Fichier à modifier :** `world/map.py`
-- **Détails d'implémentation :**
-  - Ajouter une nouvelle section dans les JSON des cartes 2D : `"transitions": [{"x": 10, "y": 15, "target_map": "...", "target_state": "InteriorState"}]`.
-  - Dans `OverworldState.update()`, vérifier si le joueur se trouve sur une tuile de transition.
-  - Si oui, appeler `self.manager.switch_state(InteriorState(map_path=..., session=...))`.
-  - Faire la même chose pour sortir d'un intérieur et revenir au monde 2D.
-
-
-
-### 3. Sauvegarde et Chargement
-
-
-
-- **Fichiers à modifier :** `GameStateManager` et `MenuState`.
-- **Détails d'implémentation :**
-  - Activer les boutons "Sauvegarder" et "Charger" dans le menu principal pour appeler les méthodes correspondantes dans le `GameStateManager`.
-
-------
-
-
-
-## Phase 4 : Systèmes de Gameplay Avancés
-
-
-
-**Objectif :** Donner de la profondeur au jeu avec des quêtes et des dialogues dynamiques.
-
-
+**Objectif :** Enrichir l'univers avec des interactions non-combatives et des objectifs suivis.
 
 ### 1. Gestionnaire de Quêtes
-
-
 
 - **Fichier à créer :** `gameplay/quest_manager.py`
 - **Détails d'implémentation :**
   - Créer une classe `QuestManager`.
-  - Une instance sera stockée dans l'objet `GameSession`.
-  - Une quête sera un objet avec un `id`, un `titre`, une `description`, et une liste d'objectifs (triggers).
-  - Créer une méthode `notify(event_type, target_id)`.
+  - Intégrer une instance de ce manager dans la `GameSession`.
+  - Définir une structure de données `Quest` contenant :
+    - Métadonnées : `id`, `titre`, `description`.
+    - État : `status` (active, completed, failed).
+    - Objectifs : Liste de triggers (ex: `{"type": "kill", "target": "monster_ID", "count": 5, "current": 0}`).
+  - Implémenter la méthode `notify(event_type, target_id)` :
+    - Cette méthode sera appelée par le `GameEngine` lors d'événements clés (mort d'un ennemi, ramassage d'item).
+    - Elle vérifiera si l'événement fait progresser une quête active.
 
-
-
-### 2. Gestionnaire de Dialogue
-
-
+### 2. Gestionnaire de Dialogue & IA
 
 - **Fichier à créer :** `gameplay/dialogue_manager.py`
 - **Détails d'implémentation :**
   - Créer une classe `DialogueManager`.
-  - Quand le joueur interagit avec un PNJ, un `DialogueState` sera poussé sur la pile du `GameStateManager`.
-  - Cet état affichera une interface de dialogue.
-  - **Intégration d'Ollama :** Utiliser la librairie `requests` pour faire un appel POST à l'API locale d'Ollama. Afficher un indicateur de chargement pendant l'attente de la réponse.
+  - Créer un nouvel état `DialogueState` (UI superposée au jeu) pour afficher les échanges sans arrêter le moteur, mais en bloquant les inputs de mouvement.
+  - **Intégration Ollama (IA Locale) :**
+    - Utiliser la librairie `requests` pour appeler l'API locale d'Ollama (`POST /api/generate`).
+    - Gérer l'attente de réponse (afficher "..." ou une animation de pensée).
+    - Construire des prompts dynamiques (Context Injection) incluant :
+      - L'état de santé du joueur.
+      - Les quêtes en cours.
+      - La personnalité du PNJ (définie dans son fichier de config).
+
+---
+
+## Améliorations Gameplay (Polissage)
+
+### 1. Modes de Tir des Armes
+
+- **Fichiers concernés :** `objects/weapon.py`, `objects/player.py`, `engine/input_manager.py`.
+- **Détails :**
+  - Ajouter un attribut `fire_mode` ("semi", "auto") à la classe `Weapon`.
+  - Ajouter une méthode `switch_fire_mode()` (touche 'V' ou clic molette).
+  - Modifier `InputManager` pour distinguer clairement :
+    - `is_mouse_just_pressed()` (pour le semi-auto).
+    - `is_mouse_held()` (pour l'automatique).
+
+### 2. Gestion d'Inventaire Avancée
+
+- **Fichiers concernés :** `objects/player.py`, `objects/item.py`.
+- **Détails :**
+  - Implémenter une limite d'inventaire (ex: 2 armes principales max).
+  - Implémenter le système de "Drop" :
+    - Si l'inventaire est plein lors d'un ramassage, l'arme active est retirée de l'inventaire.
+    - Une nouvelle instance de `Item` (type arme) est créée au sol à la position du joueur pour représenter l'arme lâchée.
 
 ------
 
+### 📅 Phase 1 : Architecture des Données & Persistance
 
+**Objectif :** Rendre les PNJ "intelligents" au niveau des données avant même de brancher l'IA.
 
-## Améliorations de l'existant
+- **1.1. Refonte du Schéma de Données PNJ (`config.json`)**
+  - Définition du nouveau standard JSON incluant :
+    - `identity` : Nom, Backstory, Intentions (Long Terme).
+    - `stats` : P, S, I (déjà existant, à conserver).
+    - `psychology` : Big Five (0.0 à 1.0), Traits spécifiques.
+    - `assets` : Mapping des fichiers sprites par émotion/intensité.
+  - *Fichiers à modifier :* `assets/pnj/[nom]/config.json`.
+- **1.2. Extension de la Classe `PNJ` et `Friend`**
+  - Ajout des attributs dynamiques (non stockés dans le JSON statique mais instanciés) :
+    - `current_emotion` (Enum: Neutral, Joy, Fear, Anger, Sadness, Disgust, Surprise).
+    - `emotion_intensity` (Enum: Low, Medium, High).
+    - `trust_level` (float 0-100).
+    - `short_term_intent` (String dynamique).
+    - `alignment` (Friend/Foe).
+  - Mise à jour du constructeur pour charger ces nouvelles données.
+  - *Fichiers à modifier :* `objects/pnj.py`, `objects/friend.py`.
+- **1.3. Mise à jour de la `GameSession` (Sauvegarde)**
+  - Assurer que l'état psychologique (Confiance, Émotion, Alignement) est sérialisé dans `savegame.json` pour que le PNJ ne "reboot" pas ses sentiments au rechargement.
+  - *Fichiers à modifier :* `gameplay/game_session.py`, `gameplay/serialization.py`.
 
+------
 
+### 🧠 Phase 2 : Le "Cerveau" (Backend Logic & IA)
 
+**Objectif :** Créer le moteur décisionnel asynchrone (Director/Actor).
 
+- **2.1. Infrastructure Threading (`DialogueManager`)**
+  - Création de la classe avec gestion de Files d'attente (`Queues`) : `input_queue`, `state_queue`, `text_stream_queue`.
+  - Implémentation de la méthode `process_input(text)` qui lance le thread sans bloquer le jeu.
+  - *Fichier à créer :* `gameplay/dialogue_manager.py`.
+- **2.2. Implémentation du Pipeline "Director" (Évaluateur)**
+  - Construction du Prompt Système "Director" : Injection des données PNJ (Backstory, Intentions, PSI, Big Five, Mémoire).
+  - Définition du schéma de sortie JSON attendu (Emotion, Intensité, Confiance +/-, Event, Instruction Acteur).
+  - Parsing robuste de la réponse JSON du LLM.
+  - Application des changements d'état (ex: Passage de Friend à Foe si Confiance < Seuil).
+- **2.3. Implémentation du Pipeline "Actor" (Générateur)**
+  - Construction du Prompt Système "Actor" : Injection de l'Instruction du Director + Style de parole (basé sur PSI/Big Five).
+  - Connexion à l'API Ollama (Stream mode).
+  - Remplissage de la `text_stream_queue` caractère par caractère.
+- **2.4. Système de Mémoire (RAG simplifié)**
+  - **Court terme :** `deque(maxlen=10)` stocké dans l'instance PNJ.
+  - **Long terme :** Sauvegarde des résumés de conversation dans un fichier JSON dédié (`history/[pnj_id].json`).
+  - Injecter le contexte pertinent dans le prompt du Director.
 
-### 1. `objects/weapon.py`
+------
 
+### 👁️ Phase 3 : Interface & Rendu (Frontend)
 
+**Objectif :** Afficher le résultat visuellement.
 
-- **Fichiers à modifier :** `objects/weapon.py`, `objects/player.py`, `engine/input_manager.py`.
-- **Détails d'implémentation :**
-  - Ajouter un attribut `fire_mode` (`"semi"`, `"auto"`) à la classe `Weapon`.
-  - Créer une méthode `switch_fire_mode()` dans la classe `Weapon`.
-  - Modifier `InputManager` pour distinguer `is_mouse_clicked()` (pour le mode "semi") et `is_mouse_held()` (pour le mode "auto").
-  - Adapter la logique de tir dans `Player` et `GameEngine` en conséquence.
+- **3.1. Création de l'État `DialogueState`**
+  - Développement de l'Overlay (OpenGL surcouche 2D).
+  - Gestion des Inputs (Saisie texte libre, Touche Entrée, Echap).
+  - *Fichier à créer :* `states/dialogue_state.py`.
+- **3.2. Système de Sprites Dynamiques**
+  - Logique de chargement de texture : `get_sprite(emotion, intensity)`.
+  - Fallback : Si `joy_high.png` n'existe pas, charger `joy_medium.png` ou `idle.png`.
+  - Affichage du portrait à gauche/droite.
+- **3.3. Affichage du Texte Streamé**
+  - Lecture de la `text_stream_queue` à chaque frame.
+  - Effet "machine à écrire" fluide.
+  - Gestion du retour à la ligne automatique (Word wrapping).
 
+------
 
+### ⚙️ Phase 4 : Gameplay & Intégration PSI
 
-### 2. `objects/player.py`
+**Objectif :** Que les stats aient un impact réel.
 
+- **4.1. Câblage des Events**
+  - Si le Director renvoie un event `GIVE_ITEM`, déclencher l'ajout à l'inventaire du joueur via `GameSession`.
+  - Si le Director renvoie un event `ATTACK`, fermer le dialogue et passer le PNJ en mode `Foe` (Combat).
+- **4.2. Influence PSI sur les Prompts**
+  - **S (Sensibilité) élevée :** Le Director détecte mieux les mensonges du joueur. L'Acteur utilise un langage plus émotionnel/poétique.
+  - **I (Intelligence) élevée :** Le Director analyse logiquement les incohérences. L'Acteur utilise un vocabulaire complexe.
+  - **P (Puissance) élevée :** L'Acteur est plus direct, intimidant ou confiant.
 
+------
 
-- **Fichiers à modifier :** `objects/player.py`
-- **Détails d'implémentation :**
-  - Implémenter une limite d'inventaire de 4 armes maximum.
-  - Si le joueur ramasse une nouvelle arme alors que l'inventaire est plein, l'arme actuellement tenue doit être "droppée" sur la carte.
+### 🧪 Phase 5 : Tests & Calibration (Iterative)
+
+**Objectif :** Équilibrer le comportement.
+
+- **5.1. Mocking (Tests sans IA)**
+  - Remplacer les appels Ollama par des fonctions simulant des réponses JSON et Texte pour valider l'UI et le Threading sans latence.
+- **5.2. Prompt Engineering (Tuning)**
+  - Ajuster les prompts systèmes pour que le Director ne soit ni trop permissif ni trop psychorigide.
+  - Tester la cohérence des traits Big Five.
+
+------
+
+### Résumé des Nouveaux Fichiers / Modifications Majeures
+
+1. `gameplay/dialogue_manager.py` (Cerveau)
+2. `states/dialogue_state.py` (Visage)
+3. `objects/friend.py` (Corps - mise à jour)
+4. `assets/pnj/.../config.json` (Âme - refonte structurelle)
+
+**Validé ?** Si oui, nous passerons à l'implémentation de la **Phase 1 (Données)**.
